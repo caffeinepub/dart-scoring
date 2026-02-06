@@ -1,0 +1,25 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-06T23:06:22.430Z",
+  "summary": "Implemented a Start Game configuration flow on `/` with mode (301/501), Double Out toggle, and player list editing; persisted settings to localStorage and updated `/game` to load settings with sensible defaults via a new `gameSettings` utility module.",
+  "missing_requirements": [
+    {
+      "id": "REQ-7",
+      "requirement": "Player list editor remove control is disabled/hidden when only 1 player remains; Add player is disabled/hidden when there are 4 players.",
+      "reason": "The diff shows state/handlers enforcing length constraints in logic, but the truncated `StartGamePage.tsx` does not provide clear evidence that the UI controls are actually disabled/hidden under these conditions (as required).",
+      "evidence": [
+        "frontend/src/pages/StartGamePage.tsx (truncated)"
+      ]
+    }
+  ],
+  "hallucinated_features": [],
+  "confidence": 0.72,
+  "changed_files": [
+    "frontend-file-summaries.txt",
+    "frontend/src/lib/gameSettings.ts",
+    "frontend/src/pages/GamePage.tsx",
+    "frontend/src/pages/StartGamePage.tsx",
+    "project_state.json"
+  ]
+}

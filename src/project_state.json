@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 5,
+  "summary": "Build a PWA web app \"Dart Scoring\" using Next.js + React + TypeScript, starting with routing and a simple tablet/phone-friendly UI (no game logic yet).",
+  "architectural_notes": [
+    "Tech stack: Next.js + React + TypeScript; target is a PWA.",
+    "Initial routes/pages required: / (Start Game) and /game (Game Screen).",
+    "UI first: simple, clean, optimized for tablet/phone with large buttons and readable player cards.",
+    "Include a basic layout with a header displaying the app name (Dart Scoring).",
+    "Prepare component structure: PlayerCard, Keypad, TurnHistory; do not implement game logic yet (navigation + UI only).",
+    "Persist Start Game settings (mode, double out, players) from `/` to `/game` using localStorage as the simplest/stablest approach."
+  ],
+  "known_issues": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-create-two-frontend-routes-pages-start-game-and-game-game-screen-with-working-navigation-between-them-e-g-a-primary-cta-on-that-navigates-to-game-and-a-back-affordance-on-game-that-returns-to",
+      "title": "Create two frontend routes/pages: `/` (Start Game) and `/game` (Game Screen), with working navigation between them (e.g., a primary CTA on `/` that navigates to `/game`, and a back affordance on `/game` that returns to `/`).",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-shared-app-layout-used-by-both-pages-including-a-header-bar-that-displays-the-app-name-dart-scoring-and-provides-consistent-spacing-padding-suitable-for-tablet-phone-screens",
+      "title": "Implement a shared app layout used by both pages, including a header bar that displays the app name \"Dart Scoring\" and provides consistent spacing/padding suitable for tablet/phone screens.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-the-requested-ui-component-structure-and-placeholder-implementations-ui-only-no-scoring-rules-playercard-keypad-and-turnhistory-organized-in-a-clear-reusable-folder-structure-under-the-frontend-source-tree",
+      "title": "Create the requested UI component structure and placeholder implementations (UI only, no scoring rules): `PlayerCard`, `Keypad`, and `TurnHistory`, organized in a clear, reusable folder structure under the frontend source tree.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-design-a-simple-clean-tablet-phone-first-ui-style-and-apply-it-consistently-across-the-app-colors-typography-spacing-button-sizing-card-styling-keep-controls-large-and-touch-friendly-and-player-cards-highly-legible-use-english-for-all-visible-ui-text",
+      "title": "Design a simple, clean, tablet/phone-first UI style and apply it consistently across the app (colors, typography, spacing, button sizing, card styling). Keep controls large and touch-friendly and player cards highly legible. Use English for all visible UI text.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-basic-pwa-scaffolding-so-the-app-can-be-installed-include-a-web-app-manifest-name-short-name-display-mode-theme-background-colors-and-reference-it-from-the-frontend-entry-html-ensure-required-app-icons-are-included-as-static-assets",
+      "title": "Add basic PWA scaffolding so the app can be installed: include a web app manifest (name, short_name, display mode, theme/background colors) and reference it from the frontend entry HTML; ensure required app icons are included as static assets.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-the-generated-pwa-icon-assets-to-frontend-public-assets-generated-and-wire-them-into-the-manifest-so-they-are-served-statically-do-not-route-images-through-the-backend",
+      "title": "Add the generated PWA icon assets to `frontend/public/assets/generated` and wire them into the manifest so they are served statically (do not route images through the backend).",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-the-current-startgamepage-marketing-placeholder-content-with-a-start-game-configuration-form-that-includes-1-game-mode-selection-with-a-radio-group-for-301-vs-501-2-a-double-out-on-off-switch-3-a-player-list-editor-supporting-1-4-players-with-an-add-player-button-per-player-name-input-and-a-remove-button-that-is-disabled-hidden-when-only-1-player-remains-keep-the-ui-touch-friendly-and-consistent-with-the-existing-tailwind-styling",
+      "title": "Replace the current `/` (StartGamePage) marketing/placeholder content with a Start Game configuration form that includes: (1) game mode selection with a radio group for 301 vs 501, (2) a 'Double Out' on/off switch, (3) a player list editor supporting 1–4 players with an 'Add player' button, per-player name input, and a remove button that is disabled/hidden when only 1 player remains; keep the UI touch-friendly and consistent with the existing Tailwind styling.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-stable-settings-handoff-from-to-game-by-persisting-the-selected-mode-double-out-flag-and-player-names-to-localstorage-when-start-game-is-pressed-then-navigate-to-game-on-save-validate-sanitize-player-names-so-there-are-no-empty-names-by-auto-filling-defaults-like-player-1-player-2-etc-based-on-the-player-index-for-any-blank-whitespace-only-inputs",
+      "title": "Implement stable settings handoff from `/` to `/game` by persisting the selected mode, double-out flag, and player names to `localStorage` when 'Start Game' is pressed, then navigate to `/game`. On save, validate/sanitize player names so there are no empty names by auto-filling defaults like 'Player 1', 'Player 2', etc. (based on the player index) for any blank/whitespace-only inputs.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-game-gamepage-to-initialize-its-displayed-player-list-and-starting-scores-from-the-saved-localstorage-settings-created-on-if-no-saved-settings-exist-e-g-user-visits-game-directly-fall-back-to-sensible-defaults-mode-501-double-out-off-two-players-named-player-1-and-player-2-without-crashing",
+      "title": "Update `/game` (GamePage) to initialize its displayed player list and starting scores from the saved localStorage settings created on `/`. If no saved settings exist (e.g., user visits `/game` directly), fall back to sensible defaults (mode 501, Double Out off, two players named 'Player 1' and 'Player 2') without crashing.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Set up Next.js + React + TypeScript PWA project foundation for \"Dart Scoring\"",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Implement routing/pages: / (Start Game) and /game (Game Screen)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Create basic responsive UI layout with header showing app name",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Create UI components and folder structure: PlayerCard, Keypad, TurnHistory (UI only, no game logic)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Implement `/` (Start Game) UI: 301/501 mode radio, Double Out switch, 1–4 players list with add/remove + name inputs, and Start Game navigation to `/game` passing settings (prefer localStorage) with auto-default player names if blank",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Dart Scoring",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

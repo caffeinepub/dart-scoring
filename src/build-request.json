@@ -1,0 +1,77 @@
+{
+  "kind": "build_request",
+  "title": "Implement Start Game configuration on / and pass settings to /game",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-7",
+      "text": "Replace the current `/` (StartGamePage) marketing/placeholder content with a Start Game configuration form that includes: (1) game mode selection with a radio group for 301 vs 501, (2) a 'Double Out' on/off switch, (3) a player list editor supporting 1–4 players with an 'Add player' button, per-player name input, and a remove button that is disabled/hidden when only 1 player remains; keep the UI touch-friendly and consistent with the existing Tailwind styling.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Zaimplementuj stronę /:\nWybór trybu: 301 / 501 (radio)\nToggle: Double Out (switch)\nLista graczy 1–4:\nprzycisk “Add player”\ninput na nazwę gracza\nprzycisk usuń gracza (oprócz minimum 1)"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Visiting `/` shows controls for selecting 301 or 501 via radio buttons.",
+        "Visiting `/` shows a 'Double Out' toggle switch that can be turned on/off.",
+        "The page shows a player list with at least 1 player input row by default.",
+        "User can add players up to a maximum of 4; when there are 4 players, 'Add player' is disabled or hidden.",
+        "User can remove players when there are 2–4 players; remove control is disabled/hidden when there is only 1 player.",
+        "All user-facing text on this page is in English (e.g., 'Game mode', '301', '501', 'Double Out', 'Players', 'Add player', 'Remove', 'Start Game')."
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "text": "Implement stable settings handoff from `/` to `/game` by persisting the selected mode, double-out flag, and player names to `localStorage` when 'Start Game' is pressed, then navigate to `/game`. On save, validate/sanitize player names so there are no empty names by auto-filling defaults like 'Player 1', 'Player 2', etc. (based on the player index) for any blank/whitespace-only inputs.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Przycisk “Start Game” → przejście do /game i przekazanie ustawień (np. przez query lub localStorage — wybierz najprościej i stabilnie).\nWalidacje: brak pustych nazw (auto: “Player 1”, “Player 2” jeśli puste)."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Clicking 'Start Game' stores a single settings object in localStorage and navigates to `/game`.",
+        "If any player name input is empty or whitespace-only at the time of starting, it is replaced in the stored settings with 'Player N' (1-indexed).",
+        "The stored settings include: selected starting score (301 or 501), the Double Out boolean, and an ordered list of 1–4 player names.",
+        "No settings are passed via query string (localStorage is the chosen mechanism)."
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "text": "Update `/game` (GamePage) to initialize its displayed player list and starting scores from the saved localStorage settings created on `/`. If no saved settings exist (e.g., user visits `/game` directly), fall back to sensible defaults (mode 501, Double Out off, two players named 'Player 1' and 'Player 2') without crashing.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ]
+      },
+      "acceptanceCriteria": [
+        "After configuring `/` and pressing 'Start Game', `/game` renders PlayerCard components for the same number of players (1–4) with the configured names.",
+        "Each player's initial score displayed on `/game` matches the configured mode (301 or 501).",
+        "Direct navigation to `/game` without prior settings does not error; the page shows a default configuration as specified.",
+        "No scoring/turn logic is introduced beyond initializing the displayed player list/scores from settings."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not edit files under `frontend/src/components/ui` (compose them if needed).",
+    "Do not edit immutable hook/entry paths listed in SYSTEM_CONTEXT (e.g., `frontend/src/main.tsx`, `frontend/src/hooks/useActor.ts`, `frontend/src/hooks/useInternetIdentity.ts`).",
+    "Backend remains unchanged (no new Motoko methods) for this request."
+  ],
+  "nonGoals": [
+    "Implementing actual dart scoring rules, turn progression, bust handling, or Double Out checkout validation.",
+    "Persisting game progress/history to the backend canister.",
+    "Adding authentication requirements for starting a game."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-06T23:06:22.433Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 3,
+    "implemented": 3,
+    "items": [
+      {
+        "id": "REQ-7",
+        "summary": "Replace the current `/` (StartGamePage) marketing/placeholder content with a Start Game configuration form that includes: (1) game mode selection with a radio group for 301 vs 501, (2) a 'Double Out' on/off switch, (3) a player list editor supporting 1–4 players with an 'Add player' button, per-player name input, and a remove button that is disabled/hidden when only 1 player remains; keep the UI touch-friendly and consistent with the existing Tailwind styling.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/StartGamePage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/StartGamePage.tsx"
+        ]
+      },
+      {
+        "id": "REQ-8",
+        "summary": "Implement stable settings handoff from `/` to `/game` by persisting the selected mode, double-out flag, and player names to `localStorage` when 'Start Game' is pressed, then navigate to `/game`. On save, validate/sanitize player names so there are no empty names by auto-filling defaults like 'Player 1', 'Player 2', etc. (based on the player index) for any blank/whitespace-only inputs.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/lib/gameSettings.ts",
+          "frontend/src/pages/StartGamePage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/lib/gameSettings.ts",
+          "frontend/src/pages/StartGamePage.tsx"
+        ]
+      },
+      {
+        "id": "REQ-9",
+        "summary": "Update `/game` (GamePage) to initialize its displayed player list and starting scores from the saved localStorage settings created on `/`. If no saved settings exist (e.g., user visits `/game` directly), fall back to sensible defaults (mode 501, Double Out off, two players named 'Player 1' and 'Player 2') without crashing.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/GamePage.tsx",
+          "frontend/src/lib/gameSettings.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/GamePage.tsx",
+          "frontend/src/lib/gameSettings.ts"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "build-request.json",
+    "build-template/README.md",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/lib/gameSettings.ts",
+    "frontend/src/pages/GamePage.tsx",
+    "frontend/src/pages/StartGamePage.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

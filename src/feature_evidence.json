@@ -1,0 +1,61 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-replace-the-current-startgamepage-marketing-placeholder-content-with-a-start-game-configuration-form-that-includes-1-game-mode-selection-with-a-radio-group-for-301-vs-501-2-a-double-out-on-off-switch-3-a-player-list-editor-supporting-1-4-players-with-an-add-player-button-per-player-name-input-and-a-remove-button-that-is-disabled-hidden-when-only-1-player-remains-keep-the-ui-touch-friendly-and-consistent-with-the-existing-tailwind-styling",
+      "featureTitle": "Replace the current `/` (StartGamePage) marketing/placeholder content with a Start Game configuration form that includes: (1) game mode selection with a radio group for 301 vs 501, (2) a 'Double Out' on/off switch, (3) a player list editor supporting 1–4 players with an 'Add player' button, per-player name input, and a remove button that is disabled/hidden when only 1 player remains; keep the UI touch-friendly and consistent with the existing Tailwind styling.",
+      "files": [
+        "frontend/src/pages/StartGamePage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-7"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-stable-settings-handoff-from-to-game-by-persisting-the-selected-mode-double-out-flag-and-player-names-to-localstorage-when-start-game-is-pressed-then-navigate-to-game-on-save-validate-sanitize-player-names-so-there-are-no-empty-names-by-auto-filling-defaults-like-player-1-player-2-etc-based-on-the-player-index-for-any-blank-whitespace-only-inputs",
+      "featureTitle": "Implement stable settings handoff from `/` to `/game` by persisting the selected mode, double-out flag, and player names to `localStorage` when 'Start Game' is pressed, then navigate to `/game`. On save, validate/sanitize player names so there are no empty names by auto-filling defaults like 'Player 1', 'Player 2', etc. (based on the player index) for any blank/whitespace-only inputs.",
+      "files": [
+        "frontend/src/lib/gameSettings.ts",
+        "frontend/src/pages/StartGamePage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-8"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-game-gamepage-to-initialize-its-displayed-player-list-and-starting-scores-from-the-saved-localstorage-settings-created-on-if-no-saved-settings-exist-e-g-user-visits-game-directly-fall-back-to-sensible-defaults-mode-501-double-out-off-two-players-named-player-1-and-player-2-without-crashing",
+      "featureTitle": "Update `/game` (GamePage) to initialize its displayed player list and starting scores from the saved localStorage settings created on `/`. If no saved settings exist (e.g., user visits `/game` directly), fall back to sensible defaults (mode 501, Double Out off, two players named 'Player 1' and 'Player 2') without crashing.",
+      "files": [
+        "frontend/src/lib/gameSettings.ts",
+        "frontend/src/pages/GamePage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-9"
+      ],
+      "confidence": "high"
+    }
+  ]
+}
