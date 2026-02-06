@@ -1,68 +1,76 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Start Game configuration on / with localStorage handoff to /game",
+  "title": "Double Out finish confirmation and Game Over flow (winner, turns, rematch/new game)",
   "requirements": [
     {
-      "id": "REQ-7",
-      "summary": "Replace `/` StartGamePage placeholder content with a touch-friendly Start Game configuration form (mode 301/501, Double Out toggle, 1–4 player editor) using existing Tailwind styling.",
+      "id": "REQ-19",
+      "summary": "Extend game-core state machine to support awaiting Double Out confirmation, game-over state, winner identity, and turns-to-win tracking while preserving existing bust rules.",
       "acceptanceCriteria": [
-        "Visiting `/` shows controls for selecting 301 or 501 via radio buttons.",
-        "Visiting `/` shows a 'Double Out' toggle switch that can be turned on/off.",
-        "The page shows a player list with at least 1 player input row by default.",
-        "User can add players up to a maximum of 4; when there are 4 players, 'Add player' is disabled or hidden.",
-        "User can remove players when there are 2–4 players; remove control is disabled/hidden when there is only 1 player.",
-        "All user-facing text on this page is in English (e.g., 'Game mode', '301', '501', 'Double Out', 'Players', 'Add player', 'Remove', 'Start Game')."
+        "With Double Out OFF, entering an exact checkout to 0 transitions the game into a game-over state and records the finishing player as winner.",
+        "With Double Out ON, entering an exact checkout to 0 transitions the game into an awaiting-confirmation state (not game-over yet).",
+        "The game-core state provides winner info and turn count when game-over is reached.",
+        "Existing bust behavior (remaining < 0 or Double Out ON and newRemaining == 1) continues to work as before."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/StartGamePage.tsx",
+          "path": "frontend/src/lib/gameCore.ts",
           "operation": "modify",
-          "description": "Replace marketing/placeholder UI with a configuration form: radio group for Game mode (301/501), a touch-friendly Double Out toggle, and a Players editor supporting 1–4 rows (add/remove with min/max constraints). Keep styling consistent with existing Tailwind patterns (large tap targets, rounded cards/buttons)."
-        }
-      ]
-    },
-    {
-      "id": "REQ-8",
-      "summary": "Persist selected settings to localStorage on 'Start Game' (no query string), sanitize blank player names with defaults, then navigate to `/game`.",
-      "acceptanceCriteria": [
-        "Clicking 'Start Game' stores a single settings object in localStorage and navigates to `/game`.",
-        "If any player name input is empty or whitespace-only at the time of starting, it is replaced in the stored settings with 'Player N' (1-indexed).",
-        "The stored settings include: selected starting score (301 or 501), the Double Out boolean, and an ordered list of 1–4 player names.",
-        "No settings are passed via query string (localStorage is the chosen mechanism)."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/lib/gameSettings.ts",
-          "operation": "create",
-          "description": "Add a small localStorage utility for game settings: define a stable storage key, default settings, save/load helpers, and a sanitizer that trims names and fills blanks with 'Player N' (1-indexed)."
+          "description": "Update the pure game-core rules and state representation to include: (1) an explicit game phase/state that can represent in-progress, awaiting double-finish confirmation, and game over; (2) winner identification (player index/name) when a leg is finished; (3) turns-to-win count; (4) logic changes so Double Out OFF finishing to 0 ends the game immediately; Double Out ON finishing to 0 enters an awaiting-confirmation state; and Double Out ON newRemaining==1 remains a bust as before. Ensure the state exposes enough info for the UI to detect awaiting confirmation and game over."
         },
         {
-          "path": "frontend/src/pages/StartGamePage.tsx",
+          "path": "frontend/src/components/game/TurnHistory.tsx",
           "operation": "modify",
-          "description": "Wire the 'Start Game' button to: sanitize current form state (trim + fill default player names), persist a single settings object to localStorage via the shared helper, then navigate to `/game` (no query-string usage)."
+          "description": "Adjust turn status rendering to correctly reflect the updated game-core flags/state for finishes (including confirmed wins vs awaiting confirmation) while keeping existing bust rendering intact."
         }
       ]
     },
     {
-      "id": "REQ-9",
-      "summary": "Initialize `/game` from saved localStorage settings with safe defaults when missing, without adding scoring/turn logic.",
+      "id": "REQ-20",
+      "summary": "Add an in-game modal prompt for Double Out finish confirmation that blocks score entry until resolved and either confirms the win or reverts the last turn as a bust.",
       "acceptanceCriteria": [
-        "After configuring `/` and pressing 'Start Game', `/game` renders PlayerCard components for the same number of players (1–4) with the configured names.",
-        "Each player's initial score displayed on `/game` matches the configured mode (301 or 501).",
-        "Direct navigation to `/game` without prior settings does not error; the page shows a default configuration as specified.",
-        "No scoring/turn logic is introduced beyond initializing the displayed player list/scores from settings."
+        "When awaiting confirmation, the UI shows a prompt/modal containing exactly: \"Was it a double finish?\".",
+        "Choosing YES ends the game and proceeds to the Game Over screen/section.",
+        "Choosing NO reverts the last turn’s scoring effect (remaining restored to the pre-turn value) and the game continues (the user can keep entering scores).",
+        "No additional score submissions can be applied until the confirmation prompt is resolved."
       ],
       "file_operations": [
+        {
+          "path": "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
+          "operation": "create",
+          "description": "Create a lightweight modal/prompt component that displays exactly the text \"Was it a double finish?\" and provides YES/NO actions, using existing UI primitives (e.g., shadcn-ui Button) for consistent styling. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/game/Keypad.tsx",
+          "operation": "modify",
+          "description": "Add a disabled/locked capability to the keypad so digit/quick-chip entry and submission can be prevented while the game is awaiting double-finish confirmation."
+        },
         {
           "path": "frontend/src/pages/GamePage.tsx",
           "operation": "modify",
-          "description": "Replace the hardcoded mock players with initialization from localStorage settings using the shared helper; if absent/invalid, fall back to defaults (mode 501, Double Out off, two players 'Player 1'/'Player 2'). Use the resolved starting score to set each player's initial displayed score and render the corresponding number of PlayerCard items (1–4)."
+          "description": "Wire the awaiting-confirmation state from game-core into the /game UI: show the DoubleFinishConfirmModal immediately when awaiting confirmation; block further score entry (disable keypad and relevant actions) until YES/NO is chosen; on YES, transition to game-over via game-core; on NO, revert the last scoring attempt like a bust (restore pre-turn remaining and continue play) via game-core."
+        }
+      ]
+    },
+    {
+      "id": "REQ-21",
+      "summary": "Show a Game Over screen in /game that displays winner and turns, and provides Rematch (same settings) and New Game (back to /) actions with English UI text.",
+      "acceptanceCriteria": [
+        "When a game is won, the app shows a Game Over UI that clearly displays winner name and turn count.",
+        "Clicking \"Rematch\" starts a fresh game with the same settings (mode, Double Out flag, player names) and resets scores/turn history.",
+        "Clicking \"New Game\" navigates to / (Start Game) without crashing.",
+        "All visible text added for Game Over/confirmation is English."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/game/GameOverScreen.tsx",
+          "operation": "create",
+          "description": "Create a Game Over screen/section component that shows (English text): winner name and number of turns taken, plus two buttons: \"Rematch\" and \"New Game\". Use existing UI primitives (e.g., shadcn-ui Button) for buttons and layout consistency. Verify the component's usage instructions before implementing."
         },
         {
-          "path": "frontend/src/lib/gameSettings.ts",
+          "path": "frontend/src/pages/GamePage.tsx",
           "operation": "modify",
-          "description": "Ensure the load helper is resilient (e.g., malformed JSON or missing fields) and always returns a valid settings object matching the required defaults."
+          "description": "Render the GameOverScreen when game-core indicates the game is over; pass winner and turns-to-win from game-core. Implement \"Rematch\" to restart a fresh game using the finished game’s settings (mode, Double Out flag, player names) and reset local UI state (input/errors). Implement \"New Game\" to navigate back to '/'. Ensure all newly added user-facing strings are English."
         }
       ]
     }

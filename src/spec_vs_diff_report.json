@@ -1,25 +1,60 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T23:06:22.430Z",
-  "summary": "Implemented a Start Game configuration flow on `/` with mode (301/501), Double Out toggle, and player list editing; persisted settings to localStorage and updated `/game` to load settings with sensible defaults via a new `gameSettings` utility module.",
+  "generatedAt": "2026-02-06T23:24:01.001Z",
+  "summary": "REQ-19 game-core updates appear largely implemented (game phases, awaiting-confirmation vs game-over behavior, winner/turns tracking, and bust handling). REQ-21 Game Over screen and rematch/new game actions are implemented. REQ-20 confirmation prompt is present, but the modal text/actions may not meet the “exact text”/YES-NO wording, and it’s not fully evidenced that score entry is blocked while awaiting confirmation due to truncation in GamePage.tsx.",
   "missing_requirements": [
     {
-      "id": "REQ-7",
-      "requirement": "Player list editor remove control is disabled/hidden when only 1 player remains; Add player is disabled/hidden when there are 4 players.",
-      "reason": "The diff shows state/handlers enforcing length constraints in logic, but the truncated `StartGamePage.tsx` does not provide clear evidence that the UI controls are actually disabled/hidden under these conditions (as required).",
+      "id": "REQ-20",
+      "requirement": "When awaiting confirmation, the UI shows a prompt/modal containing exactly: \"Was it a double finish?\"",
+      "reason": "The modal includes additional user-facing title text (“Double Finish Confirmation”), so the prompt content is not limited to exactly the required string.",
       "evidence": [
-        "frontend/src/pages/StartGamePage.tsx (truncated)"
+        "frontend/src/components/game/DoubleFinishConfirmModal.tsx"
+      ]
+    },
+    {
+      "id": "REQ-20",
+      "requirement": "The prompt must provide two actions: YES and NO (as labeled actions).",
+      "reason": "The buttons are labeled “Yes” and “No” (not “YES”/“NO”).",
+      "evidence": [
+        "frontend/src/components/game/DoubleFinishConfirmModal.tsx"
+      ]
+    },
+    {
+      "id": "REQ-20",
+      "requirement": "While awaiting confirmation, prevent further score entry from being applied until the user chooses YES or NO.",
+      "reason": "Although Keypad gained a `disabled` prop, the provided/truncated GamePage diff does not show wiring that disables score entry/submission while `game.phase === 'awaiting-confirmation'` (render section is truncated).",
+      "evidence": [
+        "frontend/src/components/game/Keypad.tsx",
+        "frontend/src/pages/GamePage.tsx"
       ]
     }
   ],
-  "hallucinated_features": [],
-  "confidence": 0.72,
+  "hallucinated_features": [
+    {
+      "description": "Modal adds an extra title \"Double Finish Confirmation\" above the required confirmation question.",
+      "reason": "BuildRequest only specifies showing a prompt/modal with the exact text \"Was it a double finish?\" and does not request an additional title.",
+      "evidence": [
+        "frontend/src/components/game/DoubleFinishConfirmModal.tsx"
+      ]
+    },
+    {
+      "description": "Game Over screen includes a trophy icon and additional congratulatory text (e.g., \"Congratulations to the winner\").",
+      "reason": "BuildRequest requires displaying winner name and turns plus Rematch/New Game buttons; icons and extra congratulatory copy were not explicitly requested.",
+      "evidence": [
+        "frontend/src/components/game/GameOverScreen.tsx"
+      ]
+    }
+  ],
+  "confidence": 0.68,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/lib/gameSettings.ts",
+    "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
+    "frontend/src/components/game/GameOverScreen.tsx",
+    "frontend/src/components/game/Keypad.tsx",
+    "frontend/src/components/game/TurnHistory.tsx",
+    "frontend/src/lib/gameCore.ts",
     "frontend/src/pages/GamePage.tsx",
-    "frontend/src/pages/StartGamePage.tsx",
     "project_state.json"
   ]
 }

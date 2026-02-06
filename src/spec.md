@@ -1,11 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Replace the `/` page with a Start Game configuration flow and reliably initialize `/game` from the saved settings.
+**Goal:** Add Double Out finish confirmation plus a complete Game Over flow that shows the winner and turn count, with Rematch/New Game actions.
 
 **Planned changes:**
-- Update `/` (StartGamePage) to show a touch-friendly configuration form: game mode radio (301/501), a Double Out toggle, and a 1–4 player list editor (add player, per-player name, remove with a minimum of 1 player).
-- Add a “Start Game” action on `/` that saves a single settings object to `localStorage`, sanitizing player names by auto-filling blanks with `Player N`, then navigates to `/game`.
-- Update `/game` (GamePage) to read settings from `localStorage` on load and initialize player cards and starting scores accordingly; fall back to defaults (501, Double Out off, two players: Player 1/Player 2) when settings are missing.
+- Update game-core state and rules to support leg completion, including an “awaiting double-finish confirmation” state when Double Out is ON and a checkout reaches 0.
+- Expose game-core information needed by the UI: whether confirmation is pending, whether the game is over, the winning player, and number of turns taken to win.
+- In the /game UI, show a modal with exact text “Was it a double finish?” when awaiting confirmation; block further score entry until resolved; YES confirms win, NO reverts the last turn as a bust.
+- Add a Game Over screen/section that appears when the game is won, displaying winner name and turns taken, with buttons: “Rematch” (same settings) and “New Game” (navigate to /), with all new UI text in English.
 
-**User-visible outcome:** Users can configure a new game on `/` (mode, Double Out, 1–4 player names) and start it; `/game` opens with the configured players and initial scores (or sensible defaults if opened directly).
+**User-visible outcome:** Players can finish a game, confirm double-out checkouts when required, then see a Game Over screen with winner and turn count, and choose to rematch with the same settings or start a new game.

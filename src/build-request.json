@@ -1,77 +1,92 @@
 {
   "kind": "build_request",
-  "title": "Implement Start Game configuration on / and pass settings to /game",
+  "title": "Add Double Out finish confirmation and Game Over flow (winner, turns, rematch/new game)",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-7",
-      "text": "Replace the current `/` (StartGamePage) marketing/placeholder content with a Start Game configuration form that includes: (1) game mode selection with a radio group for 301 vs 501, (2) a 'Double Out' on/off switch, (3) a player list editor supporting 1–4 players with an 'Add player' button, per-player name input, and a remove button that is disabled/hidden when only 1 player remains; keep the UI touch-friendly and consistent with the existing Tailwind styling.",
+      "id": "REQ-19",
+      "text": "Update the game-core rules to support finishing a leg and producing a Game Over state.\n\nRules to implement:\n- If Double Out is OFF and a turn results in remaining == 0, immediately end the game and record the winner.\n- If Double Out is ON and a turn results in remaining == 0, do not immediately end the game; instead mark the game as awaiting double-finish confirmation so the UI can prompt the user.\n- If Double Out is ON and remaining would become 1, continue treating it as a bust.\n\nThe game-core state must expose enough information for the UI to:\n- Know when the game is awaiting double confirmation\n- Know when the game is over\n- Identify the winner (player index/name)\n- Display the number of turns taken to win",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-3"
         ],
         "quotes": [
-          "Zaimplementuj stronę /:\nWybór trybu: 301 / 501 (radio)\nToggle: Double Out (switch)\nLista graczy 1–4:\nprzycisk “Add player”\ninput na nazwę gracza\nprzycisk usuń gracza (oprócz minimum 1)"
+          "Jeśli DoubleOut OFF i remaining == 0 → Game Over (zwycięzca)",
+          "Jeśli DoubleOut ON i remaining == 0: pokaż modal/prompt: “Was it a double finish?”"
         ]
       },
       "acceptanceCriteria": [
-        "Visiting `/` shows controls for selecting 301 or 501 via radio buttons.",
-        "Visiting `/` shows a 'Double Out' toggle switch that can be turned on/off.",
-        "The page shows a player list with at least 1 player input row by default.",
-        "User can add players up to a maximum of 4; when there are 4 players, 'Add player' is disabled or hidden.",
-        "User can remove players when there are 2–4 players; remove control is disabled/hidden when there is only 1 player.",
-        "All user-facing text on this page is in English (e.g., 'Game mode', '301', '501', 'Double Out', 'Players', 'Add player', 'Remove', 'Start Game')."
+        "With Double Out OFF, entering an exact checkout to 0 transitions the game into a game-over state and records the finishing player as winner.",
+        "With Double Out ON, entering an exact checkout to 0 transitions the game into an awaiting-confirmation state (not game-over yet).",
+        "The game-core state provides winner info and turn count when game-over is reached.",
+        "Existing bust behavior (remaining < 0 or Double Out ON and newRemaining == 1) continues to work as before."
       ]
     },
     {
-      "id": "REQ-8",
-      "text": "Implement stable settings handoff from `/` to `/game` by persisting the selected mode, double-out flag, and player names to `localStorage` when 'Start Game' is pressed, then navigate to `/game`. On save, validate/sanitize player names so there are no empty names by auto-filling defaults like 'Player 1', 'Player 2', etc. (based on the player index) for any blank/whitespace-only inputs.",
+      "id": "REQ-20",
+      "text": "Implement the Double Out confirmation prompt in the /game UI.\n\nWhen Double Out is ON and the game enters the awaiting double-finish confirmation state, immediately show a modal/prompt with the exact text:\n\"Was it a double finish?\"\n\nThe prompt must provide two actions:\n- YES: confirm the double finish and complete the win (transition to Game Over)\n- NO: treat the last scoring attempt like a bust by reverting the effect of that turn (restore the player’s remaining score to what it was before the turn) and continue the game normally\n\nWhile awaiting confirmation, prevent further score entry from being applied until the user chooses YES or NO.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-3"
         ],
         "quotes": [
-          "Przycisk “Start Game” → przejście do /game i przekazanie ustawień (np. przez query lub localStorage — wybierz najprościej i stabilnie).\nWalidacje: brak pustych nazw (auto: “Player 1”, “Player 2” jeśli puste)."
+          "pokaż modal/prompt: “Was it a double finish?”",
+          "YES → Game Over",
+          "NO → traktuj jak bust (cofnij efekt tury)"
         ]
       },
       "acceptanceCriteria": [
-        "Clicking 'Start Game' stores a single settings object in localStorage and navigates to `/game`.",
-        "If any player name input is empty or whitespace-only at the time of starting, it is replaced in the stored settings with 'Player N' (1-indexed).",
-        "The stored settings include: selected starting score (301 or 501), the Double Out boolean, and an ordered list of 1–4 player names.",
-        "No settings are passed via query string (localStorage is the chosen mechanism)."
+        "When awaiting confirmation, the UI shows a prompt/modal containing exactly: \"Was it a double finish?\".",
+        "Choosing YES ends the game and proceeds to the Game Over screen/section.",
+        "Choosing NO reverts the last turn’s scoring effect (remaining restored to the pre-turn value) and the game continues (the user can keep entering scores).",
+        "No additional score submissions can be applied until the confirmation prompt is resolved."
       ]
     },
     {
-      "id": "REQ-9",
-      "text": "Update `/game` (GamePage) to initialize its displayed player list and starting scores from the saved localStorage settings created on `/`. If no saved settings exist (e.g., user visits `/game` directly), fall back to sensible defaults (mode 501, Double Out off, two players named 'Player 1' and 'Player 2') without crashing.",
+      "id": "REQ-21",
+      "text": "Add a Game Over screen in the frontend that appears when the game reaches a completed win state.\n\nThe Game Over screen must display:\n- The winner (player name)\n- The number of turns taken\n\nThe Game Over screen must include two buttons:\n- \"Rematch\" (start a new game using the same settings as the finished game)\n- \"New Game\" (navigate back to the Start Game page at /)\n\nUser-facing text on this screen must be in English.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-3"
+        ],
+        "quotes": [
+          "Ekran Game Over: zwycięzca + liczba tur",
+          "przyciski: Rematch (te same ustawienia), New Game (wróć na start)"
         ]
       },
       "acceptanceCriteria": [
-        "After configuring `/` and pressing 'Start Game', `/game` renders PlayerCard components for the same number of players (1–4) with the configured names.",
-        "Each player's initial score displayed on `/game` matches the configured mode (301 or 501).",
-        "Direct navigation to `/game` without prior settings does not error; the page shows a default configuration as specified.",
-        "No scoring/turn logic is introduced beyond initializing the displayed player list/scores from settings."
+        "When a game is won, the app shows a Game Over UI that clearly displays winner name and turn count.",
+        "Clicking \"Rematch\" starts a fresh game with the same settings (mode, Double Out flag, player names) and resets scores/turn history.",
+        "Clicking \"New Game\" navigates to / (Start Game) without crashing.",
+        "All visible text added for Game Over/confirmation is English."
       ]
     }
   ],
   "constraints": [
-    "Do not edit files under `frontend/src/components/ui` (compose them if needed).",
-    "Do not edit immutable hook/entry paths listed in SYSTEM_CONTEXT (e.g., `frontend/src/main.tsx`, `frontend/src/hooks/useActor.ts`, `frontend/src/hooks/useInternetIdentity.ts`).",
-    "Backend remains unchanged (no new Motoko methods) for this request."
+    "Frontend must not modify any files under frontend/src/components/ui (compose existing UI primitives instead).",
+    "Keep the backend as a single Motoko actor; no backend changes are required for this feature unless strictly necessary.",
+    "Do not route any UI assets through the backend."
   ],
   "nonGoals": [
-    "Implementing actual dart scoring rules, turn progression, bust handling, or Double Out checkout validation.",
-    "Persisting game progress/history to the backend canister.",
-    "Adding authentication requirements for starting a game."
+    "Adding online/multiplayer features or real-time synchronization.",
+    "Persisting game-in-progress state to the backend.",
+    "Changing the Start Game settings UX beyond what is necessary for Rematch/New Game navigation."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

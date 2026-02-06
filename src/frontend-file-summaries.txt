@@ -2,13 +2,16 @@
   "frontend/src/App.tsx": "Main application component that configures TanStack Router with routes for \"/\" (Start Game) and \"/game\" (Game Screen), wrapping both in the shared AppLayout.",
   "frontend/src/layouts/AppLayout.tsx": "Shared layout component that renders a sticky header with the \"Dart Scoring\" title and dart icon, an outlet for page content, and a footer with attribution.",
   "frontend/src/pages/StartGamePage.tsx": "Start Game configuration page with radio buttons for 301/501 mode selection, Double Out toggle switch, dynamic player list editor (1-4 players with add/remove), and Start Game button that saves settings to localStorage before navigating to /game.",
-  "frontend/src/pages/GamePage.tsx": "Game Screen page that loads settings from localStorage on mount, initializes player cards with configured names and starting scores, and displays the game interface with players, keypad, and turn history sections.",
-  "frontend/src/components/game/PlayerCard.tsx": "Presentational component displaying a player's name and current score in a card with visual indication of the active player.",
-  "frontend/src/components/game/Keypad.tsx": "Touch-friendly numeric keypad component with 0-9 buttons, clear button, and submit button for score entry (UI only, no logic).",
-  "frontend/src/components/game/TurnHistory.tsx": "Scrollable table component displaying turn history with mock data showing turn number, player name, score, and remaining points.",
+  "frontend/src/pages/GamePage.tsx": "Game screen managing Game state with keypad input handling, double finish confirmation modal, game over screen, rematch/new game actions, and rendering of player cards and turn history.",
+  "frontend/src/components/game/PlayerCard.tsx": "Presentational card displaying player name and remaining score (sourced from parent Game state) with visual indication of the active player.",
+  "frontend/src/components/game/Keypad.tsx": "Controlled numeric keypad component with quick score chips, digit buttons, clear action, and Enter submit button that supports disabled state for blocking input during confirmation.",
+  "frontend/src/components/game/TurnHistory.tsx": "Scrollable table component rendering the last 5 turns with turn number, player, score, remaining, and status indicators for bust, finish (awaiting confirmation), and confirmed win conditions.",
   "frontend/src/index.css": "Global styles with OKLCH color system defining a purple-themed design with proper light/dark mode support and touch-optimized button styling.",
   "frontend/tailwind.config.js": "Tailwind configuration extending the theme with custom colors mapped to CSS variables and maintaining the default border radius and animation settings.",
   "frontend/index.html": "HTML entry point with PWA meta tags, manifest link, and icon references for installability.",
   "frontend/public/manifest.webmanifest": "PWA manifest file defining app name, display mode, theme colors, and icon references for 192x192 and 512x512 sizes.",
-  "frontend/src/lib/gameSettings.ts": "Utility module for managing game settings in localStorage, including types, save/load functions, and player name sanitization with defaults."
+  "frontend/src/lib/gameSettings.ts": "Utility module for managing game settings in localStorage, including types, save/load functions, and player name sanitization with defaults.",
+  "frontend/src/lib/gameCore.ts": "UI-agnostic game core module with pure state transition functions including game phases (in-progress, awaiting-confirmation, game-over), winner tracking, turn counting, and functions for confirming/rejecting double finishes.",
+  "frontend/src/components/game/DoubleFinishConfirmModal.tsx": "Modal dialog component that displays \"Was it a double finish?\" with Yes/No buttons for confirming Double Out finishes.",
+  "frontend/src/components/game/GameOverScreen.tsx": "Game Over screen component displaying winner name, turn count, and Rematch/New Game action buttons with trophy icon."
 }

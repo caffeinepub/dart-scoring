@@ -1,7 +1,7 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T23:06:22.433Z",
+  "generatedAt": "2026-02-06T23:24:01.005Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
@@ -11,53 +11,59 @@
     "implemented": 3,
     "items": [
       {
-        "id": "REQ-7",
-        "summary": "Replace the current `/` (StartGamePage) marketing/placeholder content with a Start Game configuration form that includes: (1) game mode selection with a radio group for 301 vs 501, (2) a 'Double Out' on/off switch, (3) a player list editor supporting 1–4 players with an 'Add player' button, per-player name input, and a remove button that is disabled/hidden when only 1 player remains; keep the UI touch-friendly and consistent with the existing Tailwind styling.",
+        "id": "REQ-19",
+        "summary": "Update the game-core rules to support finishing a leg and producing a Game Over state.\n\nRules to implement:\n- If Double Out is OFF and a turn results in remaining == 0, immediately end the game and record the winner.\n- If Double Out is ON and a turn results in remaining == 0, do not immediately end the game; instead mark the game as awaiting double-finish confirmation so the UI can prompt the user.\n- If Double Out is ON and remaining would become 1, continue treating it as a bust.\n\nThe game-core state must expose enough information for the UI to:\n- Know when the game is awaiting double confirmation\n- Know when the game is over\n- Identify the winner (player index/name)\n- Display the number of turns taken to win",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/StartGamePage.tsx"
+          "frontend/src/lib/gameCore.ts",
+          "frontend/src/components/game/TurnHistory.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/StartGamePage.tsx"
+          "frontend/src/lib/gameCore.ts",
+          "frontend/src/components/game/TurnHistory.tsx"
         ]
       },
       {
-        "id": "REQ-8",
-        "summary": "Implement stable settings handoff from `/` to `/game` by persisting the selected mode, double-out flag, and player names to `localStorage` when 'Start Game' is pressed, then navigate to `/game`. On save, validate/sanitize player names so there are no empty names by auto-filling defaults like 'Player 1', 'Player 2', etc. (based on the player index) for any blank/whitespace-only inputs.",
+        "id": "REQ-20",
+        "summary": "Implement the Double Out confirmation prompt in the /game UI.\n\nWhen Double Out is ON and the game enters the awaiting double-finish confirmation state, immediately show a modal/prompt with the exact text:\n\"Was it a double finish?\"\n\nThe prompt must provide two actions:\n- YES: confirm the double finish and complete the win (transition to Game Over)\n- NO: treat the last scoring attempt like a bust by reverting the effect of that turn (restore the player’s remaining score to what it was before the turn) and continue the game normally\n\nWhile awaiting confirmation, prevent further score entry from being applied until the user chooses YES or NO.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/lib/gameSettings.ts",
-          "frontend/src/pages/StartGamePage.tsx"
+          "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
+          "frontend/src/components/game/Keypad.tsx",
+          "frontend/src/pages/GamePage.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/lib/gameSettings.ts",
-          "frontend/src/pages/StartGamePage.tsx"
+          "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
+          "frontend/src/components/game/Keypad.tsx",
+          "frontend/src/pages/GamePage.tsx"
         ]
       },
       {
-        "id": "REQ-9",
-        "summary": "Update `/game` (GamePage) to initialize its displayed player list and starting scores from the saved localStorage settings created on `/`. If no saved settings exist (e.g., user visits `/game` directly), fall back to sensible defaults (mode 501, Double Out off, two players named 'Player 1' and 'Player 2') without crashing.",
+        "id": "REQ-21",
+        "summary": "Add a Game Over screen in the frontend that appears when the game reaches a completed win state.\n\nThe Game Over screen must display:\n- The winner (player name)\n- The number of turns taken\n\nThe Game Over screen must include two buttons:\n- \"Rematch\" (start a new game using the same settings as the finished game)\n- \"New Game\" (navigate back to the Start Game page at /)\n\nUser-facing text on this screen must be in English.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/GamePage.tsx",
-          "frontend/src/lib/gameSettings.ts"
+          "frontend/src/components/game/GameOverScreen.tsx",
+          "frontend/src/pages/GamePage.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/GamePage.tsx",
-          "frontend/src/lib/gameSettings.ts"
+          "frontend/src/components/game/GameOverScreen.tsx",
+          "frontend/src/pages/GamePage.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
     "build-request.json",
-    "build-template/README.md",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/lib/gameSettings.ts",
+    "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
+    "frontend/src/components/game/GameOverScreen.tsx",
+    "frontend/src/components/game/Keypad.tsx",
+    "frontend/src/components/game/TurnHistory.tsx",
+    "frontend/src/lib/gameCore.ts",
     "frontend/src/pages/GamePage.tsx",
-    "frontend/src/pages/StartGamePage.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

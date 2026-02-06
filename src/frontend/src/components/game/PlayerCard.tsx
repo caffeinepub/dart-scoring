@@ -33,7 +33,7 @@ export default function PlayerCard({ name, score, isActive = false }: PlayerCard
         )}
       </div>
       <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">Current Score</p>
+        <p className="text-sm text-muted-foreground">Remaining</p>
         <p className="text-4xl font-bold tracking-tight">{score}</p>
       </div>
     </div>
