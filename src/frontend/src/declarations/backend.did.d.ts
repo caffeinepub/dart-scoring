@@ -10,6 +10,7 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export type AdminToken = string;
 export interface Game {
   'id' : bigint,
   'startTime' : bigint,
@@ -20,15 +21,30 @@ export interface Game {
 export type GameStatus = { 'Active' : null } |
   { 'Completed' : null } |
   { 'Pending' : null };
+export interface Player {
+  'id' : bigint,
+  'userId' : bigint,
+  'joinedAt' : bigint,
+  'isHost' : boolean,
+  'roomId' : bigint,
+}
 export interface Room {
   'id' : bigint,
   'status' : RoomStatus,
   'code' : string,
+  'adminToken' : string,
   'hostId' : bigint,
 }
 export type RoomStatus = { 'Open' : null } |
   { 'Closed' : null } |
   { 'InProgress' : null };
+export interface ShotEvent {
+  'id' : bigint,
+  'multiplier' : bigint,
+  'turnId' : bigint,
+  'target' : bigint,
+  'points' : bigint,
+}
 export interface Turn {
   'id' : bigint,
   'playerId' : bigint,
@@ -37,14 +53,26 @@ export interface Turn {
   'turnIndex' : bigint,
 }
 export interface _SERVICE {
+  'addPlayer' : ActorMethod<[bigint, bigint, boolean], Player>,
   'createGame' : ActorMethod<[bigint], Game>,
-  'createRoom' : ActorMethod<[string, bigint], Room>,
-  'createTurn' : ActorMethod<[bigint, bigint, bigint], Turn>,
+  'createRoom' : ActorMethod<[string, bigint, string], Room>,
+  'createShotEvent' : ActorMethod<
+    [bigint, bigint, bigint, bigint, string, AdminToken],
+    ShotEvent
+  >,
+  'createTurn' : ActorMethod<
+    [bigint, bigint, bigint, string, AdminToken],
+    Turn
+  >,
   'getGamesByRoom' : ActorMethod<[bigint], Array<Game>>,
   'getRoomByCode' : ActorMethod<[string], [] | [Room]>,
+  'getShotEventsByTurn' : ActorMethod<[bigint], Array<ShotEvent>>,
   'getTurnsByGameAndIndex' : ActorMethod<[bigint, bigint], Array<Turn>>,
   'health' : ActorMethod<[], string>,
-  'updateGameStatus' : ActorMethod<[bigint, GameStatus], undefined>,
+  'updateGameStatus' : ActorMethod<
+    [bigint, GameStatus, string, AdminToken],
+    undefined
+  >,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

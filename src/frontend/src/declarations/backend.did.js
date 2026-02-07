@@ -8,6 +8,13 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const Player = IDL.Record({
+  'id' : IDL.Nat,
+  'userId' : IDL.Nat,
+  'joinedAt' : IDL.Nat,
+  'isHost' : IDL.Bool,
+  'roomId' : IDL.Nat,
+});
 export const GameStatus = IDL.Variant({
   'Active' : IDL.Null,
   'Completed' : IDL.Null,
@@ -29,7 +36,16 @@ export const Room = IDL.Record({
   'id' : IDL.Nat,
   'status' : RoomStatus,
   'code' : IDL.Text,
+  'adminToken' : IDL.Text,
   'hostId' : IDL.Nat,
+});
+export const AdminToken = IDL.Text;
+export const ShotEvent = IDL.Record({
+  'id' : IDL.Nat,
+  'multiplier' : IDL.Nat,
+  'turnId' : IDL.Nat,
+  'target' : IDL.Nat,
+  'points' : IDL.Nat,
 });
 export const Turn = IDL.Record({
   'id' : IDL.Nat,
@@ -40,23 +56,45 @@ export const Turn = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  'addPlayer' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Bool], [Player], []),
   'createGame' : IDL.Func([IDL.Nat], [Game], []),
-  'createRoom' : IDL.Func([IDL.Text, IDL.Nat], [Room], []),
-  'createTurn' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Nat], [Turn], []),
+  'createRoom' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [Room], []),
+  'createShotEvent' : IDL.Func(
+      [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+      [ShotEvent],
+      [],
+    ),
+  'createTurn' : IDL.Func(
+      [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+      [Turn],
+      [],
+    ),
   'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
   'getRoomByCode' : IDL.Func([IDL.Text], [IDL.Opt(Room)], ['query']),
+  'getShotEventsByTurn' : IDL.Func([IDL.Nat], [IDL.Vec(ShotEvent)], ['query']),
   'getTurnsByGameAndIndex' : IDL.Func(
       [IDL.Nat, IDL.Nat],
       [IDL.Vec(Turn)],
       ['query'],
     ),
   'health' : IDL.Func([], [IDL.Text], ['query']),
-  'updateGameStatus' : IDL.Func([IDL.Nat, GameStatus], [], []),
+  'updateGameStatus' : IDL.Func(
+      [IDL.Nat, GameStatus, IDL.Text, AdminToken],
+      [],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const Player = IDL.Record({
+    'id' : IDL.Nat,
+    'userId' : IDL.Nat,
+    'joinedAt' : IDL.Nat,
+    'isHost' : IDL.Bool,
+    'roomId' : IDL.Nat,
+  });
   const GameStatus = IDL.Variant({
     'Active' : IDL.Null,
     'Completed' : IDL.Null,
@@ -78,7 +116,16 @@ export const idlFactory = ({ IDL }) => {
     'id' : IDL.Nat,
     'status' : RoomStatus,
     'code' : IDL.Text,
+    'adminToken' : IDL.Text,
     'hostId' : IDL.Nat,
+  });
+  const AdminToken = IDL.Text;
+  const ShotEvent = IDL.Record({
+    'id' : IDL.Nat,
+    'multiplier' : IDL.Nat,
+    'turnId' : IDL.Nat,
+    'target' : IDL.Nat,
+    'points' : IDL.Nat,
   });
   const Turn = IDL.Record({
     'id' : IDL.Nat,
@@ -89,18 +136,37 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    'addPlayer' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Bool], [Player], []),
     'createGame' : IDL.Func([IDL.Nat], [Game], []),
-    'createRoom' : IDL.Func([IDL.Text, IDL.Nat], [Room], []),
-    'createTurn' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Nat], [Turn], []),
+    'createRoom' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [Room], []),
+    'createShotEvent' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+        [ShotEvent],
+        [],
+      ),
+    'createTurn' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+        [Turn],
+        [],
+      ),
     'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
     'getRoomByCode' : IDL.Func([IDL.Text], [IDL.Opt(Room)], ['query']),
+    'getShotEventsByTurn' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(ShotEvent)],
+        ['query'],
+      ),
     'getTurnsByGameAndIndex' : IDL.Func(
         [IDL.Nat, IDL.Nat],
         [IDL.Vec(Turn)],
         ['query'],
       ),
     'health' : IDL.Func([], [IDL.Text], ['query']),
-    'updateGameStatus' : IDL.Func([IDL.Nat, GameStatus], [], []),
+    'updateGameStatus' : IDL.Func(
+        [IDL.Nat, GameStatus, IDL.Text, AdminToken],
+        [],
+        [],
+      ),
   });
 };
 

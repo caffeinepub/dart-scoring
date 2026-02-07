@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 31,
-  "summary": "Build a PWA web app \"Dart Scoring\" using Next.js + React + TypeScript, with tablet/phone-friendly UI plus core game state/data model and deterministic scoring rules (including optional per-dart 3-dart turn entry). Add basic \"pro\" features: an optional checkout helper (for remaining <= 170) and per-game player statistics with a Stats screen. Extend the app with 1–3 camera/video preview sources (Webcam via getUserMedia and HLS URL) shown on the /game screen, plus a Manual Review flow to review/edit the last turn and replay game state, and add a ShotEvent data model + ScoringProvider interface stub as foundation for future auto-scoring. Add a backend service where the backend is the source of truth for game state, including endpoints to create turns (applyTurn with total or 3-darts), undo the last turn, and edit a turn with deterministic replay of subsequent turns, returning an updated game snapshot after each operation.",
+  "projectStateVersion": 37,
+  "summary": "Build a PWA web app \"Dart Scoring\" using Next.js + React + TypeScript, with tablet/phone-friendly UI plus core game state/data model and deterministic scoring rules (including optional per-dart 3-dart turn entry). Add basic \"pro\" features: an optional checkout helper (for remaining <= 170) and per-game player statistics with a Stats screen. Extend the app with 1–3 camera/video preview sources (Webcam via getUserMedia and HLS URL) shown on the /game screen, plus a Manual Review flow to review/edit the last turn and replay game state, and add a ShotEvent data model + ScoringProvider interface stub as foundation for future auto-scoring. Add a backend service where the backend is the source of truth for game state, including endpoints to create turns (applyTurn with total or 3-darts), undo the last turn, and edit a turn with deterministic replay of subsequent turns, returning an updated game snapshot after each operation. For MVP multi-device play, add simple token-based protection (no user accounts): generate a scorer/admin token when creating a room/game and require it via X-ADMIN-TOKEN header for state-mutating endpoints; TV/display views remain read-only and require only the room code.",
   "architectural_notes": [
     "Tech stack: Next.js + React + TypeScript; target is a PWA.",
     "Initial routes/pages required: / (Start Game) and /game (Game Screen).",
@@ -448,6 +448,94 @@
         "REQ-54"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-expose-two-realtime-endpoints-channels-matching-the-requested-paths-ws-ws-rooms-code-and-ws-ws-games-game-id-define-and-document-the-event-envelope-format-as-json-with-type-and-payload-fields-so-the-frontend-can-parse-it-consistently",
+      "title": "Expose two realtime endpoints/channels matching the requested paths: `WS /ws/rooms/{code}` and `WS /ws/games/{game_id}`. Define and document the event envelope format as JSON with `type` and `payload` fields so the frontend can parse it consistently.",
+      "reqIds": [
+        "REQ-80"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-frontend-realtime-client-wiring-that-connects-to-ws-games-game-id-for-the-currently-active-game-and-updates-the-in-memory-ui-state-using-incoming-type-game-snapshot-events-the-frontend-must-treat-snapshots-as-authoritative-and-overwrite-refresh-the-displayed-game-state-accordingly",
+      "title": "Add frontend realtime client wiring that connects to `ws/games/{game_id}` for the currently active game and updates the in-memory UI state using incoming `{ type: \"GAME_SNAPSHOT\" }` events. The frontend must treat snapshots as authoritative and overwrite/refresh the displayed game state accordingly.",
+      "reqIds": [
+        "REQ-83"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-new-start-screen-flow-for-multi-device-play-that-supports-creating-and-joining-a-room-create-room-action-that-calls-backend-equivalent-to-post-rooms-and-then-displays-the-returned-room-code-join-room-flow-where-the-user-enters-a-room-code-and-the-app-calls-backend-equivalent-to-get-rooms-code-to-validate-fetch-the-room-all-user-facing-text-must-be-in-english",
+      "title": "Add a new Start screen flow for multi-device play that supports creating and joining a room:\n- “Create Room” action that calls backend (equivalent to POST /rooms) and then displays the returned room code.\n- “Join Room” flow where the user enters a room code and the app calls backend (equivalent to GET /rooms/{code}) to validate/fetch the room.\nAll user-facing text must be in English.",
+      "reqIds": [
+        "REQ-84"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-introduce-dedicated-routes-pages-for-multi-device-roles-within-a-room-a-host-scorer-screen-for-creating-a-game-and-entering-scores-a-display-tv-screen-that-is-read-only-and-shows-the-scoreboard-recent-turns-ensure-navigation-from-the-multi-device-start-screen-to-these-pages-is-clear-and-uses-english-ui-text",
+      "title": "Introduce dedicated routes/pages for multi-device roles within a room:\n- A “Host / Scorer” screen for creating a game and entering scores.\n- A “Display / TV” screen that is read-only and shows the scoreboard + recent turns.\nEnsure navigation from the multi-device Start screen to these pages is clear and uses English UI text.",
+      "reqIds": [
+        "REQ-85"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-on-the-host-scorer-screen-implement-game-creation-in-a-room-by-calling-backend-equivalent-to-post-rooms-code-games-using-the-existing-game-settings-301-501-double-out-players-and-then-transition-the-host-scorer-ui-into-live-scoring-mode-for-that-created-game",
+      "title": "On the Host / Scorer screen, implement game creation in a room by calling backend (equivalent to POST /rooms/{code}/games) using the existing game settings (301/501, Double Out, players) and then transition the Host / Scorer UI into “live scoring” mode for that created game.",
+      "reqIds": [
+        "REQ-87"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-wire-host-scorer-gameplay-mutations-to-backend-methods-score-entry-calls-backend-equivalent-to-post-turns-or-post-games-game-id-turns-depending-on-backend-api-shape-undo-calls-backend-equivalent-to-post-undo-or-post-games-game-id-undo-edit-last-turn-calls-backend-equivalent-to-put-turns-turn-id-after-each-successful-mutation-the-ui-must-refresh-from-the-returned-authoritative-game-snapshot",
+      "title": "Wire Host / Scorer gameplay mutations to backend methods:\n- Score entry calls backend (equivalent to POST /turns or POST /games/{game_id}/turns depending on backend API shape).\n- Undo calls backend (equivalent to POST /undo or POST /games/{game_id}/undo).\n- Edit last turn calls backend (equivalent to PUT /turns/{turn_id}).\nAfter each successful mutation, the UI must refresh from the returned authoritative game snapshot.",
+      "reqIds": [
+        "REQ-88"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-display-tv-screen-as-a-read-only-view-that-shows-the-scoreboard-players-remaining-active-indicator-and-the-most-recent-turns-connects-to-the-realtime-channel-ws-ws-games-game-id-and-renders-authoritative-type-game-snapshot-payload-updates-does-not-allow-score-entry-undo-or-edits",
+      "title": "Implement the Display / TV screen as a read-only view that:\n- Shows the scoreboard (players + remaining + active indicator) and the most recent turns.\n- Connects to the realtime channel `WS /ws/games/{game_id}` and renders authoritative `{ type: \"GAME_SNAPSHOT\", payload: ... }` updates.\n- Does not allow score entry, undo, or edits.",
+      "reqIds": [
+        "REQ-89"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-multi-device-parallel-usage-works-coherently-when-the-host-scorer-performs-a-mutation-new-turn-undo-edit-the-backend-broadcasts-a-game-snapshot-event-to-connected-display-tv-clients-so-they-update-without-manual-refresh",
+      "title": "Ensure multi-device parallel usage works coherently: when the Host / Scorer performs a mutation (new turn / undo / edit), the backend broadcasts a `GAME_SNAPSHOT` event to connected Display / TV clients so they update without manual refresh.",
+      "reqIds": [
+        "REQ-90"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-frontend-multi-device-create-room-flow-to-capture-and-persist-the-returned-scorer-admin-token-for-the-created-room-e-g-in-localstorage-keyed-by-room-code-and-use-it-automatically-for-host-scorer-actions-on-that-device",
+      "title": "Update the frontend multi-device Create Room flow to capture and persist the returned scorer/admin token for the created room (e.g., in localStorage keyed by room code) and use it automatically for Host / Scorer actions on that device.",
+      "reqIds": [
+        "REQ-94"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-minimal-frontend-ui-for-the-host-scorer-role-to-handle-scorer-admin-tokens-across-devices-allow-the-user-to-enter-a-scorer-token-when-joining-a-room-or-when-opening-host-scorer-without-a-saved-token-persist-it-locally-for-that-room-code-and-clearly-show-an-english-error-state-when-the-token-is-invalid",
+      "title": "Add a minimal frontend UI for the Host / Scorer role to handle scorer/admin tokens across devices: allow the user to enter a scorer token when joining a room (or when opening Host / Scorer without a saved token), persist it locally for that room code, and clearly show an English error state when the token is invalid.",
+      "reqIds": [
+        "REQ-95"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-plumb-the-admin-token-through-existing-frontend-api-helper-functions-used-by-the-host-scorer-screen-e-g-functions-in-frontend-src-lib-roomgameapi-ts-and-frontend-src-lib-roomsapi-ts-so-that-all-state-mutating-actor-calls-include-the-token-parameter-while-read-only-calls-remain-unchanged",
+      "title": "Plumb the admin token through existing frontend API helper functions used by the Host / Scorer screen (e.g., functions in `frontend/src/lib/roomGameApi.ts` and `frontend/src/lib/roomsApi.ts`) so that all state-mutating actor calls include the token parameter, while read-only calls remain unchanged.",
+      "reqIds": [
+        "REQ-96"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -784,6 +872,86 @@
       "summary": "Standardize backend responses for the new gameplay mutation methods (create turn, undo, edit) so they always return either (a) an updated snapshot or (b) a structured, non-trapping error with a machine-readable code and an English message.",
       "reqIds": [
         "REQ-78"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-49",
+      "summary": "Add realtime WebSocket support for rooms/games: WS /ws/rooms/{code} and WS /ws/games/{game_id}; frontend connects to /ws/games/{game_id}; after each mutation (new turn/undo/edit/finish) backend broadcasts {type:\"GAME_SNAPSHOT\", payload:<snapshot>} plus lightweight events TURN_ADDED/TURN_UNDONE/TURN_EDITED; include a simple ConnectionManager storing connections per game_id",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-50",
+      "summary": "Add a backend-side realtime connection registry (“ConnectionManager”) that tracks active client connections per `game_id` and supports broadcasting events to all connections for a given `game_id`. The manager must support adding/removing connections and broadcasting JSON-serializable events.",
+      "reqIds": [
+        "REQ-79"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-52",
+      "summary": "After every backend game mutation (new turn, undo, edit, finish), broadcast a canonical snapshot event to all connections in that game: `{ type: \"GAME_SNAPSHOT\", payload: <snapshot> }`, where `<snapshot>` is the same snapshot shape returned by the backend mutation endpoints.",
+      "reqIds": [
+        "REQ-81"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-53",
+      "summary": "In addition to `GAME_SNAPSHOT`, broadcast lightweight events for the same mutations: `TURN_ADDED`, `TURN_UNDONE`, `TURN_EDITED`. These lightweight events may contain minimal payload, but `GAME_SNAPSHOT` must remain the source of truth for clients.",
+      "reqIds": [
+        "REQ-82"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-54",
+      "summary": "Frontend multi-device flow: Start screen supports Create Room (POST /rooms -> show code) and Join Room (enter code -> GET /rooms/{code})",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-55",
+      "summary": "Add separate frontend experiences for multi-device play: (1) Host/Scorer screen to create game + enter scores and call POST /turns, POST /undo, PUT /turns; (2) Display/TV screen read-only scoreboard + recent turns that connects via WebSocket and renders authoritative GAME_SNAPSHOT updates for parallel devices",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-58",
+      "summary": "Implement backend room APIs needed for the multi-device Start screen:\n- Create room method (equivalent to POST /rooms) that generates a room code server-side and returns the created room.\n- Get room by code method (equivalent to GET /rooms/{code}) that returns the room data (and any active game reference if applicable).\nBackend methods must return structured, non-trapping errors for expected client failures (e.g., room not found).",
+      "reqIds": [
+        "REQ-86"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-59",
+      "summary": "Add simple MVP authorization for multi-device play (no login): generate a scorer/admin token on room/game creation (e.g., room.admin_token) and require header X-ADMIN-TOKEN on all state-mutating endpoints (create turn/undo/edit/finish); read-only TV/display endpoints require only room code",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-60",
+      "summary": "Extend the backend Room/Game data model to include an admin/scorer token (e.g., `adminToken : Text`) generated by the backend when creating a room (and, if needed, when creating a game). The token must be treated as a secret and must not be derivable from the room code.",
+      "reqIds": [
+        "REQ-91"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-61",
+      "summary": "Update backend state-mutating methods so they require an admin token to be provided and validated. Any method that modifies backend state must enforce the equivalent of requiring HTTP header `X-ADMIN-TOKEN` by accepting a token parameter (since canister calls do not provide HTTP headers) and rejecting the call with a structured, non-trapping error when the token is missing/invalid.",
+      "reqIds": [
+        "REQ-92"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-62",
+      "summary": "Ensure TV/display read-only flows do not require any token and continue to work using only the room code/game identifier (including realtime subscription).",
+      "reqIds": [
+        "REQ-93"
       ],
       "status": "pending"
     }

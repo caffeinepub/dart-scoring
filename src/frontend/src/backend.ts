@@ -89,18 +89,12 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface Room {
+export interface Player {
     id: bigint;
-    status: RoomStatus;
-    code: string;
-    hostId: bigint;
-}
-export interface Turn {
-    id: bigint;
-    playerId: bigint;
-    gameId: bigint;
-    score: bigint;
-    turnIndex: bigint;
+    userId: bigint;
+    joinedAt: bigint;
+    isHost: boolean;
+    roomId: bigint;
 }
 export interface Game {
     id: bigint;
@@ -109,6 +103,28 @@ export interface Game {
     endTime?: bigint;
     roomId: bigint;
 }
+export interface ShotEvent {
+    id: bigint;
+    multiplier: bigint;
+    turnId: bigint;
+    target: bigint;
+    points: bigint;
+}
+export interface Turn {
+    id: bigint;
+    playerId: bigint;
+    gameId: bigint;
+    score: bigint;
+    turnIndex: bigint;
+}
+export interface Room {
+    id: bigint;
+    status: RoomStatus;
+    code: string;
+    adminToken: string;
+    hostId: bigint;
+}
+export type AdminToken = string;
 export enum GameStatus {
     Active = "Active",
     Completed = "Completed",
@@ -120,18 +136,35 @@ export enum RoomStatus {
     InProgress = "InProgress"
 }
 export interface backendInterface {
+    addPlayer(userId: bigint, roomId: bigint, isHost: boolean): Promise<Player>;
     createGame(roomId: bigint): Promise<Game>;
-    createRoom(code: string, hostId: bigint): Promise<Room>;
-    createTurn(gameId: bigint, playerId: bigint, turnIndex: bigint): Promise<Turn>;
+    createRoom(code: string, hostId: bigint, adminToken: string): Promise<Room>;
+    createShotEvent(turnId: bigint, target: bigint, points: bigint, multiplier: bigint, roomCode: string, adminToken: AdminToken): Promise<ShotEvent>;
+    createTurn(gameId: bigint, playerId: bigint, turnIndex: bigint, roomCode: string, adminToken: AdminToken): Promise<Turn>;
     getGamesByRoom(roomId: bigint): Promise<Array<Game>>;
     getRoomByCode(code: string): Promise<Room | null>;
+    getShotEventsByTurn(turnId: bigint): Promise<Array<ShotEvent>>;
     getTurnsByGameAndIndex(gameId: bigint, turnIndex: bigint): Promise<Array<Turn>>;
     health(): Promise<string>;
-    updateGameStatus(gameId: bigint, newStatus: GameStatus): Promise<void>;
+    updateGameStatus(gameId: bigint, newStatus: GameStatus, roomCode: string, adminToken: AdminToken): Promise<void>;
 }
 import type { Game as _Game, GameStatus as _GameStatus, Room as _Room, RoomStatus as _RoomStatus } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async addPlayer(arg0: bigint, arg1: bigint, arg2: boolean): Promise<Player> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addPlayer(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addPlayer(arg0, arg1, arg2);
+            return result;
+        }
+    }
     async createGame(arg0: bigint): Promise<Game> {
         if (this.processError) {
             try {
@@ -146,31 +179,45 @@ export class Backend implements backendInterface {
             return from_candid_Game_n1(this._uploadFile, this._downloadFile, result);
         }
     }
-    async createRoom(arg0: string, arg1: bigint): Promise<Room> {
+    async createRoom(arg0: string, arg1: bigint, arg2: string): Promise<Room> {
         if (this.processError) {
             try {
-                const result = await this.actor.createRoom(arg0, arg1);
+                const result = await this.actor.createRoom(arg0, arg1, arg2);
                 return from_candid_Room_n6(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createRoom(arg0, arg1);
+            const result = await this.actor.createRoom(arg0, arg1, arg2);
             return from_candid_Room_n6(this._uploadFile, this._downloadFile, result);
         }
     }
-    async createTurn(arg0: bigint, arg1: bigint, arg2: bigint): Promise<Turn> {
+    async createShotEvent(arg0: bigint, arg1: bigint, arg2: bigint, arg3: bigint, arg4: string, arg5: AdminToken): Promise<ShotEvent> {
         if (this.processError) {
             try {
-                const result = await this.actor.createTurn(arg0, arg1, arg2);
+                const result = await this.actor.createShotEvent(arg0, arg1, arg2, arg3, arg4, arg5);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createTurn(arg0, arg1, arg2);
+            const result = await this.actor.createShotEvent(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
+    async createTurn(arg0: bigint, arg1: bigint, arg2: bigint, arg3: string, arg4: AdminToken): Promise<Turn> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createTurn(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createTurn(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }
@@ -202,6 +249,20 @@ export class Backend implements backendInterface {
             return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getShotEventsByTurn(arg0: bigint): Promise<Array<ShotEvent>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getShotEventsByTurn(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getShotEventsByTurn(arg0);
+            return result;
+        }
+    }
     async getTurnsByGameAndIndex(arg0: bigint, arg1: bigint): Promise<Array<Turn>> {
         if (this.processError) {
             try {
@@ -230,17 +291,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async updateGameStatus(arg0: bigint, arg1: GameStatus): Promise<void> {
+    async updateGameStatus(arg0: bigint, arg1: GameStatus, arg2: string, arg3: AdminToken): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateGameStatus(arg0, to_candid_GameStatus_n12(this._uploadFile, this._downloadFile, arg1));
+                const result = await this.actor.updateGameStatus(arg0, to_candid_GameStatus_n12(this._uploadFile, this._downloadFile, arg1), arg2, arg3);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateGameStatus(arg0, to_candid_GameStatus_n12(this._uploadFile, this._downloadFile, arg1));
+            const result = await this.actor.updateGameStatus(arg0, to_candid_GameStatus_n12(this._uploadFile, this._downloadFile, arg1), arg2, arg3);
             return result;
         }
     }
@@ -288,17 +349,20 @@ function from_candid_record_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint
     id: bigint;
     status: _RoomStatus;
     code: string;
+    adminToken: string;
     hostId: bigint;
 }): {
     id: bigint;
     status: RoomStatus;
     code: string;
+    adminToken: string;
     hostId: bigint;
 } {
     return {
         id: value.id,
         status: from_candid_RoomStatus_n8(_uploadFile, _downloadFile, value.status),
         code: value.code,
+        adminToken: value.adminToken,
         hostId: value.hostId
     };
 }

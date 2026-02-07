@@ -25,7 +25,7 @@ export default function StatsPage() {
 
   const handleBack = () => {
     if (savedGame && savedGame.phase === 'in-progress') {
-      navigate({ to: '/game' });
+      navigate({ to: '/game', search: {} });
     } else {
       navigate({ to: '/' });
     }

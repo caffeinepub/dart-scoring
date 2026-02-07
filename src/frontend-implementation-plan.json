@@ -1,6 +1,116 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Frontend-only plan: no changes required for backend-only gameplay mutation methods",
-  "requirements": []
+  "title": "Frontend admin/scorer token capture, storage, and mutation-call plumbing for multi-device rooms",
+  "requirements": [
+    {
+      "id": "REQ-93",
+      "summary": "Keep Display / TV read-only flow token-free while continuing to load/subscribe by room code only",
+      "acceptanceCriteria": [
+        "The Display / TV page can load/subscribe and render snapshots without providing any admin token.",
+        "No token input is required anywhere in the Display / TV UI.",
+        "Backend read-only APIs used by the Display / TV flow do not require a token parameter."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/RoomDisplayTvPage.tsx",
+          "operation": "modify",
+          "description": "Audit and keep the Display / TV flow strictly read-only: ensure it uses only the roomCode param for realtime subscription and does not read, request, or prompt for an admin/scorer token anywhere."
+        },
+        {
+          "path": "frontend/src/hooks/useGameRealtime.ts",
+          "operation": "modify",
+          "description": "Confirm the realtime subscription hook remains independent of any admin/scorer token (no token parameters, no localStorage token reads), so TV clients continue to function using only a room code/game identifier."
+        }
+      ]
+    },
+    {
+      "id": "REQ-94",
+      "summary": "Store the admin/scorer token returned by Create Room and automatically reuse it for Host / Scorer mutations on that device",
+      "acceptanceCriteria": [
+        "After a successful Create Room action, the frontend stores the returned admin token locally in a persistent way (localStorage is acceptable) associated with the room code.",
+        "Navigating to Host / Scorer from the room-created screen uses the stored token automatically when calling backend mutations.",
+        "If the token is missing locally, Host / Scorer mutations fail gracefully with an English error message and do not crash the app."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/lib/adminTokenStorage.ts",
+          "operation": "create",
+          "description": "Add localStorage helpers to persist and retrieve admin/scorer tokens keyed by room code (e.g., get/set/clear), including safe error handling for storage failures."
+        },
+        {
+          "path": "frontend/src/lib/roomsApi.ts",
+          "operation": "modify",
+          "description": "Update createRoom() to work with the backend-generated admin/scorer token: call the backend createRoom capability, capture the returned Room (including adminToken), and return both room code and token so the UI can persist it."
+        },
+        {
+          "path": "frontend/src/pages/StartGamePage.tsx",
+          "operation": "modify",
+          "description": "After successful Create Room, persist the returned admin/scorer token in localStorage (via adminTokenStorage) under the created room code, while keeping user-facing text English-only."
+        },
+        {
+          "path": "frontend/src/pages/RoomHostScorerPage.tsx",
+          "operation": "modify",
+          "description": "Load the saved admin/scorer token for the room code on entry and pass it down to game creation/scoring flows; if missing, show a non-blocking English error and guide the user to provide/save a token (without crashing)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-95",
+      "summary": "Add minimal token UI for Host / Scorer across devices (optional token on join; required token prompt on host when missing; clear invalid-token error state)",
+      "acceptanceCriteria": [
+        "The Join Room flow provides an optional input labeled in English (e.g., \"Scorer token (optional)\") that is stored locally when provided.",
+        "If a user navigates to Host / Scorer without a stored token, the page provides a token input labeled in English and a way to save it for the current room code.",
+        "When backend rejects a mutation due to missing/invalid token, the UI displays an English error message and remains usable after correcting the token."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/StartGamePage.tsx",
+          "operation": "modify",
+          "description": "Extend the Join Room UI to include an optional English-labeled scorer/admin token input (e.g., \"Scorer token (optional)\") and persist it locally (via adminTokenStorage) keyed by the joined room code when provided."
+        },
+        {
+          "path": "frontend/src/pages/RoomHostScorerPage.tsx",
+          "operation": "modify",
+          "description": "Add a minimal Host / Scorer token section shown when no token is saved for the room: provide an English-labeled input, a Save action to persist via adminTokenStorage, and ensure invalid/missing-token errors are shown in English and can be cleared by updating the token."
+        },
+        {
+          "path": "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
+          "operation": "modify",
+          "description": "Update scoring UI integration to accept an admin/scorer token (prop) and surface missing/invalid token failures as non-crashing English errors while keeping the panel usable after the token is corrected."
+        }
+      ]
+    },
+    {
+      "id": "REQ-96",
+      "summary": "Pass admin/scorer token through frontend API helpers for all state-mutating Host / Scorer calls while keeping read-only calls unchanged",
+      "acceptanceCriteria": [
+        "All frontend calls that create/modify game state from the Host / Scorer UI include the admin token argument when calling the backend actor methods.",
+        "Read-only calls (e.g., get room by code used for validation, realtime subscription setup) do not require a token.",
+        "No user-facing text is introduced in languages other than English."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/lib/roomGameApi.ts",
+          "operation": "modify",
+          "description": "Plumb admin/scorer token through state-mutating helpers used by Host / Scorer (e.g., createGameForRoom, submitScore, editLastTurn if it performs mutations): accept token+roomCode as needed and include them in backend actor mutation calls; keep read-only calls (like getRoomByCode) token-free; normalize structured backend auth failures into English messages (e.g., \"Invalid admin token\")."
+        },
+        {
+          "path": "frontend/src/pages/RoomHostScorerPage.tsx",
+          "operation": "modify",
+          "description": "Wire the stored/entered admin token into calls that create/modify game state (e.g., pass token to createGameForRoom and down to HostLiveScoringPanel), while ensuring the Display / TV navigation remains token-free."
+        },
+        {
+          "path": "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
+          "operation": "modify",
+          "description": "Update calls into roomGameApi helpers so all state mutations include the current roomCode and admin/scorer token, and ensure errors returned/rejected due to auth are displayed in English without breaking the scoring workflow."
+        },
+        {
+          "path": "frontend/src/lib/roomsApi.ts",
+          "operation": "modify",
+          "description": "Keep getRoomByCode() as a read-only helper (no token required) while ensuring any room-creation flow returns the admin/scorer token for persistence (mutations only)."
+        }
+      ]
+    }
+  ]
 }

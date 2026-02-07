@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, Undo2, BarChart3 } from 'lucide-react';
 import PlayerCard from '../components/game/PlayerCard';
 import Keypad from '../components/game/Keypad';
@@ -21,6 +21,8 @@ import { saveGame, loadSavedGame, clearSavedGame } from '../lib/gamePersistence'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { parseVoiceScore } from '../lib/voiceScoreParser';
 import { getCheckoutSuggestions } from '../lib/checkoutSuggestions';
+import { useGameRealtime } from '../hooks/useGameRealtime';
+import type { GameSnapshot } from '../lib/realtimeEventEnvelope';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -32,6 +34,9 @@ type ScoreEntryMode = 'total' | '3darts';
 
 export default function GamePage() {
   const navigate = useNavigate();
+  const searchParams = useSearch({ from: '/game' }) as { game_id?: string };
+  const gameId = searchParams.game_id || null;
+  
   const [game, setGame] = useState<Game | null>(null);
   const [currentInput, setCurrentInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -46,6 +51,50 @@ export default function GamePage() {
   const [voiceProposedScore, setVoiceProposedScore] = useState<number | null>(null);
 
   const { isSupported, isListening, transcript, start, stop, reset } = useSpeechRecognition();
+
+  // Realtime game snapshot handler
+  const handleGameSnapshot = useCallback((snapshot: GameSnapshot) => {
+    if (!game) return;
+
+    // Apply snapshot to update game state
+    const updatedGame: Game = {
+      ...game,
+      players: snapshot.players.map((p) => ({
+        name: p.name,
+        remaining: p.remaining,
+      })),
+      currentPlayerIndex: snapshot.currentPlayerIndex,
+      turnHistory: snapshot.turnHistory.map((t) => ({
+        turnNumber: t.turnNumber,
+        playerIndex: t.playerIndex,
+        playerName: t.playerName,
+        scoredPoints: t.scoredPoints,
+        remainingAfter: t.remainingAfter,
+        isBust: t.isBust,
+        isConfirmedWin: t.isConfirmedWin,
+        darts: t.darts.map((d) => ({
+          mult: d.mult as any,
+          value: d.value,
+        })),
+        turnTotal: t.turnTotal,
+        finishDart: t.finishDart,
+        previousRemaining: 0, // Not needed from snapshot
+        previousPlayerIndex: 0, // Not needed from snapshot
+      })),
+      phase: snapshot.phase,
+      winner: snapshot.winner,
+    };
+
+    setGame(updatedGame);
+    saveGame(updatedGame);
+  }, [game]);
+
+  // Connect to realtime events if gameId is present
+  const { connectionState, isConnected, isFallback } = useGameRealtime({
+    gameId,
+    onGameSnapshot: handleGameSnapshot,
+    enabled: !!gameId && !!game,
+  });
 
   // Initialize game on mount - check for saved game first
   useEffect(() => {
