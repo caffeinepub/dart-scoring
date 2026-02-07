@@ -14,34 +14,65 @@ export interface RealtimeEventEnvelope<T = unknown> {
   payload: T;
 }
 
+/**
+ * Canonical Game Snapshot Contract
+ * This structure matches the backend snapshot schema and is used for all
+ * game state synchronization between backend, realtime events, and frontend UI.
+ */
 export interface GameSnapshot {
-  gameId: string;
+  game: {
+    id: string;
+    mode: 301 | 501;
+    double_out: boolean;
+    status: 'pending' | 'active' | 'completed';
+    current_player_id: string;
+    room_id?: string;
+    started_at?: number;
+    finished_at?: number;
+    winner_player_id?: string;
+  };
   players: Array<{
+    id: string;
     name: string;
+    displayName?: string;
+    userId?: string | null;
     remaining: number;
+    seat_order: number;
+    stats?: {
+      avg_per_3_darts?: number;
+      first_9_avg?: number;
+      count_180s?: number;
+      checkout_percentage?: number;
+      busts_count?: number;
+    };
   }>;
-  currentPlayerIndex: number;
-  turnHistory: Array<{
-    turnNumber: number;
-    playerIndex: number;
-    playerName: string;
-    scoredPoints: number;
-    remainingAfter: number;
-    isBust: boolean;
-    isConfirmedWin: boolean;
-    darts: Array<{
+  last_turns: Array<{
+    id: string;
+    turn_index: number;
+    player_id: string;
+    scored_total: number;
+    turn_total: number;
+    is_bust: boolean;
+    is_win: boolean;
+    remaining_before: number;
+    remaining_after: number;
+    darts?: Array<{
       mult: string;
       value: number;
     }>;
-    turnTotal: number;
-    finishDart?: string;
+    finish_dart?: string;
   }>;
-  phase: 'in-progress' | 'game-over';
-  winner: {
-    playerIndex: number;
-    playerName: string;
-    turns: number;
-  } | null;
+  shot_events_last: Array<{
+    id: string;
+    timestamp: number;
+    source: 'manual' | 'voice' | 'camera';
+    status: 'proposed' | 'accepted' | 'rejected';
+    proposed_total?: number;
+    proposed_darts?: Array<{
+      mult: string;
+      value: number;
+    }>;
+  }>;
 }
 
 /**

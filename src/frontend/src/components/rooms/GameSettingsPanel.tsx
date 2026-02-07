@@ -6,25 +6,41 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { sanitizePlayerNames } from '../../lib/gameSettings';
+
+export interface PlayerAssignment {
+  name: string;
+  assignTo: 'guest' | 'me';
+}
 
 interface GameSettingsPanelProps {
   onCreateGame: (settings: {
     mode: 301 | 501;
     doubleOut: boolean;
-    players: string[];
+    players: PlayerAssignment[];
   }) => void;
   isCreating: boolean;
+  canAssignMe?: boolean;
+  currentUsername?: string;
 }
 
-export default function GameSettingsPanel({ onCreateGame, isCreating }: GameSettingsPanelProps) {
+export default function GameSettingsPanel({ 
+  onCreateGame, 
+  isCreating,
+  canAssignMe = false,
+  currentUsername
+}: GameSettingsPanelProps) {
   const [mode, setMode] = useState<301 | 501>(501);
   const [doubleOut, setDoubleOut] = useState(false);
-  const [players, setPlayers] = useState(['', '']);
+  const [players, setPlayers] = useState<PlayerAssignment[]>([
+    { name: '', assignTo: 'guest' },
+    { name: '', assignTo: 'guest' }
+  ]);
 
   const handleAddPlayer = () => {
     if (players.length < 4) {
-      setPlayers([...players, '']);
+      setPlayers([...players, { name: '', assignTo: 'guest' }]);
     }
   };
 
@@ -36,12 +52,21 @@ export default function GameSettingsPanel({ onCreateGame, isCreating }: GameSett
 
   const handlePlayerNameChange = (index: number, value: string) => {
     const newPlayers = [...players];
-    newPlayers[index] = value;
+    newPlayers[index] = { ...newPlayers[index], name: value };
+    setPlayers(newPlayers);
+  };
+
+  const handlePlayerAssignmentChange = (index: number, value: 'guest' | 'me') => {
+    const newPlayers = [...players];
+    newPlayers[index] = { ...newPlayers[index], assignTo: value };
     setPlayers(newPlayers);
   };
 
   const handleSubmit = () => {
-    const sanitizedPlayers = sanitizePlayerNames(players);
+    const sanitizedPlayers = players.map(p => ({
+      name: p.name.trim() || `Player ${players.indexOf(p) + 1}`,
+      assignTo: p.assignTo
+    }));
     onCreateGame({
       mode,
       doubleOut,
@@ -132,28 +157,60 @@ export default function GameSettingsPanel({ onCreateGame, isCreating }: GameSett
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-3">
+          <div className="space-y-4">
             {players.map((player, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="flex-1">
-                  <Input
-                    type="text"
-                    placeholder={`Player ${index + 1}`}
-                    value={player}
-                    onChange={(e) => handlePlayerNameChange(index, e.target.value)}
-                    className="h-12 text-base"
-                  />
+              <div key={index} className="space-y-3 p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <Label htmlFor={`player-name-${index}`} className="text-sm mb-2 block">
+                      Player {index + 1} Name
+                    </Label>
+                    <Input
+                      id={`player-name-${index}`}
+                      type="text"
+                      placeholder={`Player ${index + 1}`}
+                      value={player.name}
+                      onChange={(e) => handlePlayerNameChange(index, e.target.value)}
+                      className="h-12 text-base"
+                    />
+                  </div>
+                  {players.length > 1 && (
+                    <Button
+                      onClick={() => handleRemovePlayer(index)}
+                      variant="ghost"
+                      size="icon"
+                      className="h-12 w-12 text-destructive hover:text-destructive hover:bg-destructive/10 mt-6"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                  )}
                 </div>
-                {players.length > 1 && (
-                  <Button
-                    onClick={() => handleRemovePlayer(index)}
-                    variant="ghost"
-                    size="icon"
-                    className="h-12 w-12 text-destructive hover:text-destructive hover:bg-destructive/10"
+                <div>
+                  <Label htmlFor={`player-assign-${index}`} className="text-sm mb-2 block">
+                    Assign Seat
+                  </Label>
+                  <Select
+                    value={player.assignTo}
+                    onValueChange={(value: 'guest' | 'me') => handlePlayerAssignmentChange(index, value)}
                   >
-                    <X className="h-5 w-5" />
-                  </Button>
-                )}
+                    <SelectTrigger id={`player-assign-${index}`} className="h-12">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="guest">Guest</SelectItem>
+                      {canAssignMe && (
+                        <SelectItem value="me">
+                          Me {currentUsername ? `(${currentUsername})` : ''}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {!canAssignMe && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Sign in to assign seats to your account
+                    </p>
+                  )}
+                </div>
               </div>
             ))}
           </div>

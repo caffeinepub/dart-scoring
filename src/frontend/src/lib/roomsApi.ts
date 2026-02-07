@@ -10,18 +10,6 @@ function generateRoomCode(): string {
   return code;
 }
 
-/**
- * Generate a random admin token
- */
-function generateAdminToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
-}
-
 export interface RoomResult {
   ok: boolean;
   code?: string;
@@ -30,22 +18,26 @@ export interface RoomResult {
 }
 
 /**
- * Create a new room with a generated code and admin token
+ * Create a new room with optional account-based ownership
  * Note: This is a standalone async function, not a hook
  */
-export async function createRoom(actor: any): Promise<RoomResult> {
+export async function createRoom(actor: any, createWithAccount: boolean): Promise<RoomResult> {
   try {
     if (!actor) {
       return { ok: false, message: 'Backend not available' };
     }
 
     const code = generateRoomCode();
-    const adminToken = generateAdminToken();
-    const hostId = BigInt(Math.floor(Math.random() * 1000000)); // Temporary host ID
+    const hostId = 'host_' + Date.now(); // Temporary host ID
     
-    const room = await actor.createRoom(code, hostId, adminToken);
+    const result = await actor.createRoomV2(code, hostId, createWithAccount);
     
-    return { ok: true, code: room.code, adminToken: room.adminToken };
+    // Backend returns { room: Room, admin_token?: string }
+    return { 
+      ok: true, 
+      code: result.room.code, 
+      adminToken: result.admin_token || undefined 
+    };
   } catch (error) {
     console.error('Failed to create room:', error);
     return { ok: false, message: 'Failed to create room' };

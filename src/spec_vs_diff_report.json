@@ -1,98 +1,56 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T12:14:14.201Z",
-  "summary": "Token-based protection was partially added (Room model includes adminToken; frontend stores/uses a token in some places), but several key requirements are not met: backend token generation is client-driven, backend auth failures trap instead of returning structured non-trapping errors, secrets are leaked in read-only responses, and multiple mutation calls are not consistently plumbed with token parameters.",
+  "generatedAt": "2026-02-07T15:11:36.506Z",
+  "summary": "The diff adds some Google OAuth-related documentation and partial backend config scaffolding, but it does not clearly implement the exact required configuration keys (including the secret), does not show a safe query method implementation, and does not demonstrate upgrade/migration handling for any new stable config state. Additionally, the diff includes several unrelated frontend and backend changes not requested by the BuildRequest.",
   "missing_requirements": [
     {
-      "id": "REQ-91",
-      "requirement": "Backend must generate the admin/scorer token server-side when creating a room (token not provided by client / not derivable from room code), store it, and avoid including it in read-only snapshot responses for TV/display.",
-      "reason": "`createRoom` currently accepts `adminToken` from the client, and frontend generates it client-side. Also, the read-only `getRoomByCode` returns `?Room` where `Room` contains `adminToken`, leaking the secret to any read-only caller (including TV/display flows).",
+      "id": "REQ-148",
+      "requirement": "Add backend configuration plumbing for Google OAuth using exact keys GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_OAUTH_REDIRECT, with a single authoritative config record and sensible non-empty dev defaults.",
+      "reason": "The backend shows a GoogleOAuthConfig record, but its fields are `clientId`, `redirectUri`, and `frontendOAuthRedirect` (not the exact key names), and it does not include any representation of `GOOGLE_CLIENT_SECRET` in the authoritative config object shown. Therefore the required four keys (with exact names) and secret plumbing are not evidenced in the diff summary.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-149",
+      "requirement": "Expose a backend query method returning a safe Google OAuth config shape (must not return GOOGLE_CLIENT_SECRET).",
+      "reason": "The documentation references a `getGoogleOAuthConfig()` query method, but the backend diff excerpt does not show any query method implementation. Because the backend file is truncated, there is insufficient evidence that the method exists and returns only the allowed fields.",
       "evidence": [
         "backend/main.mo",
-        "frontend/src/lib/roomsApi.ts"
+        "frontend/docs/configuration.md"
       ]
     },
     {
-      "id": "REQ-92",
-      "requirement": "All backend state-mutating methods must require an admin token parameter and reject missing/invalid tokens with a structured, non-trapping error (machine-readable code + English message).",
-      "reason": "Backend validation uses `Runtime.trap` (trapping) for invalid token and not-found room; this violates the non-trapping structured error requirement. Also, at least one mutation (`createGame`) is shown without any token parameter/validation.",
+      "id": "REQ-150",
+      "requirement": "Update upgrade safety/migrations for any new stable configuration state introduced for Google OAuth (update backend/migration.mo if stable state layout changes).",
+      "reason": "No changes to `backend/migration.mo` are shown, and the backend diff excerpt does not show stable-state additions for Google OAuth config nor any preupgrade/postupgrade handling. The comment mentions a “conditional migration” but there is no evidenced migration implementation in the diff summary.",
       "evidence": [
         "backend/main.mo"
-      ]
-    },
-    {
-      "id": "REQ-93",
-      "requirement": "TV/display read-only flows must not require any token and must continue to work with only room code/game identifier; read-only APIs must not require token parameters and must not force token input in Display UI.",
-      "reason": "While no token parameter is shown for `getRoomByCode`, the read-only `getRoomByCode` returns a `Room` that includes `adminToken`, which risks exposing the secret to TV/display clients and violates the intent that read-only flows should not receive the token.",
-      "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
-      "id": "REQ-94",
-      "requirement": "Frontend Create Room flow must persist the returned backend-generated admin token and use it automatically for Host/Scorer actions; missing token must fail gracefully.",
-      "reason": "Frontend persists a token, but it is generated client-side and passed into `createRoom` rather than being returned as a backend-generated secret. This does not satisfy “returned token generated server-side”.",
-      "evidence": [
-        "frontend/src/pages/StartGamePage.tsx",
-        "frontend/src/lib/roomsApi.ts"
-      ]
-    },
-    {
-      "id": "REQ-95",
-      "requirement": "Frontend must provide minimal UI to enter scorer token when joining a room or when opening Host/Scorer without a saved token; persist it; show clear English error on invalid token and remain usable after correcting.",
-      "reason": "Host/Scorer page shows token input when missing, but the diff summary does not clearly show the Join Room flow input is labeled as an optional scorer token in the UI (only state `joinAdminToken` is visible). Additionally, invalid-token behavior depends on backend error text; backend currently traps with a message that may not match the frontend parser (see REQ-92).",
-      "evidence": [
-        "frontend/src/pages/StartGamePage.tsx",
-        "frontend/src/pages/RoomHostScorerPage.tsx",
-        "backend/main.mo"
-      ]
-    },
-    {
-      "id": "REQ-96",
-      "requirement": "All frontend state-mutating actor calls from Host/Scorer must include admin token parameter; read-only calls unchanged.",
-      "reason": "`createGameForRoom` calls `actor.createGame(room.id)` without token. `HostLiveScoringPanel` calls `undoLastTurn(snapshot)` without passing actor/token (suggesting undo mutation is not token-protected/plumbed through). This indicates mutations are not consistently updated to include the token parameter.",
-      "evidence": [
-        "frontend/src/lib/roomGameApi.ts",
-        "frontend/src/components/rooms/HostLiveScoringPanel.tsx"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Client-side generation of the admin/scorer token and sending it to the backend during room creation.",
-      "reason": "The BuildRequest explicitly requires the token be generated by the backend (server-side), not provided by the client. The diff adds `generateAdminToken()` on the frontend and passes it into `actor.createRoom(code, hostId, adminToken)`.",
-      "evidence": [
-        "frontend/src/lib/roomsApi.ts",
-        "backend/main.mo"
-      ]
-    },
-    {
-      "description": "Trapping (Runtime.trap) on invalid token / room not found during admin token validation instead of returning structured non-trapping errors.",
-      "reason": "BuildRequest requires non-trapping structured errors with machine-readable code + English message; trapping is an unrequested behavior and conflicts with the requirement.",
-      "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
-      "description": "PWA offline/service worker registration changes unrelated to the token/room authorization requirements.",
-      "reason": "Not requested in this BuildRequest; the diff summary indicates AppLayout now registers a service worker for offline PWA capabilities.",
+      "description": "Added/modified frontend routes and pages (/login, /register, /profile, /games/$id) and other substantial UI/game/PWA behavior changes unrelated to Google OAuth configuration documentation.",
+      "reason": "BuildRequest non-goals explicitly exclude adding new frontend UI for Google sign-in and only request documentation updates; the listed frontend changes go far beyond documentation and OAuth config plumbing.",
       "evidence": [
         "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Backend OAuth linking-related changes (e.g., new OAuth uniqueness index and comments indicating a stable breaking change for “OAuth linking”).",
+      "reason": "BuildRequest explicitly says to not change existing authentication settings/flows and to only add Google OAuth configuration plumbing (not user linking). The diff excerpt shows an `oauthIndex` and a comment about conditional migration for OAuth linking.",
+      "evidence": [
+        "backend/main.mo"
       ]
     }
   ],
   "confidence": 0.74,
   "changed_files": [
     "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
-    "frontend/src/lib/adminTokenStorage.ts",
-    "frontend/src/lib/roomGameApi.ts",
-    "frontend/src/lib/roomsApi.ts",
-    "frontend/src/pages/RoomHostScorerPage.tsx",
-    "frontend/src/pages/StartGamePage.tsx",
+    "frontend/docs/configuration.md",
     "project_state.json"
   ]
 }

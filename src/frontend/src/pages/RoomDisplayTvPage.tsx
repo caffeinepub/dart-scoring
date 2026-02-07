@@ -6,13 +6,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import DisplayScoreboard from '../components/rooms/DisplayScoreboard';
 import RecentTurnsReadOnly from '../components/rooms/RecentTurnsReadOnly';
+import ClaimSeatPanel from '../components/rooms/ClaimSeatPanel';
 import { useGameRealtime } from '../hooks/useGameRealtime';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import type { GameSnapshot } from '../lib/realtimeEventEnvelope';
 
 export default function RoomDisplayTvPage() {
   const navigate = useNavigate();
   const { roomCode } = useParams({ from: '/room/$roomCode/display' });
   const [gameSnapshot, setGameSnapshot] = useState<GameSnapshot | null>(null);
+  const { identity, isLoginSuccess } = useInternetIdentity();
 
   const handleGameSnapshot = useCallback((snapshot: GameSnapshot) => {
     setGameSnapshot(snapshot);
@@ -20,11 +23,18 @@ export default function RoomDisplayTvPage() {
 
   // Connect to realtime for this room's game
   // Note: We'll use roomCode as gameId for now (backend limitation)
-  const { connectionState, isConnected, isFallback } = useGameRealtime({
+  const { connectionState, isConnected, isFallback, reconnect } = useGameRealtime({
     gameId: roomCode,
     onGameSnapshot: handleGameSnapshot,
     enabled: true,
   });
+
+  const handleClaimSuccess = () => {
+    // Trigger a refresh by reconnecting
+    if (reconnect) {
+      reconnect();
+    }
+  };
 
   const handleBackToStart = () => {
     navigate({ to: '/' });
@@ -108,6 +118,15 @@ export default function RoomDisplayTvPage() {
       {gameSnapshot && (
         <div className="space-y-6">
           <DisplayScoreboard snapshot={gameSnapshot} />
+          
+          {gameSnapshot.game.status !== 'completed' && (
+            <ClaimSeatPanel
+              snapshot={gameSnapshot}
+              isAuthenticated={isLoginSuccess}
+              onClaimSuccess={handleClaimSuccess}
+            />
+          )}
+          
           <RecentTurnsReadOnly snapshot={gameSnapshot} />
         </div>
       )}

@@ -1,0 +1,112 @@
+# Caddy reverse proxy configuration for Dart Scoring PWA
+# This is an OPTIONAL configuration for serving the app behind a custom domain
+
+# Replace with your actual domain
+yourdomain.com {
+    # Automatic HTTPS with Let's Encrypt
+    # Caddy handles certificate provisioning and renewal automatically
+
+    # Replace with your frontend canister ID
+    # Format: https://<canister-id>.ic0.app or https://<canister-id>.raw.ic0.app
+    reverse_proxy https://YOUR_FRONTEND_CANISTER_ID.ic0.app {
+        # Forward original host header
+        header_up Host {upstream_hostport}
+        
+        # Forward client IP
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        
+        # Trust IC boundary node certificates
+        transport http {
+            tls
+            tls_insecure_skip_verify
+        }
+    }
+
+    # SPA routing: serve index.html for all non-asset paths
+    # This ensures TanStack Router can handle client-side routing
+    @notAsset {
+        not path /assets/*
+        not path /manifest.webmanifest
+        not path /service-worker.js
+        not path /*.png
+        not path /*.jpg
+        not path /*.ico
+        not path /*.svg
+        not path /*.woff*
+        not path /*.ttf
+        file {
+            try_files {path} /index.html
+        }
+    }
+
+    # Cache static assets for PWA
+    header /assets/* {
+        Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # Cache PWA manifest and icons
+    header /manifest.webmanifest {
+        Cache-Control "public, max-age=86400"
+        Content-Type "application/manifest+json"
+    }
+
+    header /*.png {
+        Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # Don't cache service worker (needs to update immediately)
+    header /service-worker.js {
+        Cache-Control "no-cache, no-store, must-revalidate"
+    }
+
+    # Don't cache index.html (SPA entry point)
+    header /index.html {
+        Cache-Control "no-cache, no-store, must-revalidate"
+    }
+
+    # Security headers
+    header {
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        
+        # XSS protection
+        X-Content-Type-Options "nosniff"
+        
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # Permissions policy
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+
+    # Enable gzip compression
+    encode gzip
+
+    # Logging
+    log {
+        output file /var/log/caddy/dart-scoring.log
+        format json
+    }
+}
+
+# Optional: Redirect www to non-www
+www.yourdomain.com {
+    redir https://yourdomain.com{uri} permanent
+}
+
+# Optional: Serve multiple environments
+# dev.yourdomain.com {
+#     reverse_proxy https://DEV_CANISTER_ID.ic0.app {
+#         header_up Host {upstream_hostport}
+#     }
+# }
+
+# Notes:
+# 1. Replace "yourdomain.com" with your actual domain
+# 2. Replace "YOUR_FRONTEND_CANISTER_ID" with your canister ID from dfx
+# 3. Ensure DNS A/AAAA records point to your Caddy server
+# 4. Caddy will automatically obtain and renew Let's Encrypt certificates
+# 5. For local testing, use "http://localhost:8080" instead of domain
+# 6. The IC boundary nodes handle CORS; this config preserves those headers

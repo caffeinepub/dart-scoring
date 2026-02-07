@@ -1,4 +1,6 @@
 import type { GameSnapshot } from './realtimeEventEnvelope';
+import type { PlayerAssignment } from '../components/rooms/GameSettingsPanel';
+import type { Player } from '../backend';
 
 export interface GameCreationResult {
   ok: boolean;
@@ -12,16 +14,30 @@ export interface ScoreMutationResult {
   message?: string;
 }
 
+export interface ClaimSeatResult {
+  ok: boolean;
+  message?: string;
+}
+
 /**
  * Parse backend error messages for auth failures
  */
 function parseBackendError(error: any): string {
   const errorMessage = error?.message || String(error);
   
-  if (errorMessage.includes('Invalid admin token')) {
-    return 'Invalid admin token. Please check your scorer token.';
+  if (errorMessage.includes('Unauthorized') || errorMessage.includes('Invalid admin token')) {
+    return 'You are not authorized to perform this action.';
+  }
+  if (errorMessage.includes('Admin token required')) {
+    return 'Invalid scorer token.';
   }
   if (errorMessage.includes('not found')) {
+    return errorMessage;
+  }
+  if (errorMessage.includes('Anonymous')) {
+    return 'You must be signed in to perform this action.';
+  }
+  if (errorMessage.includes('already')) {
     return errorMessage;
   }
   
@@ -30,26 +46,23 @@ function parseBackendError(error: any): string {
 
 /**
  * Create a game for a room with the given settings
- * Requires admin token for authorization
+ * Supports owner-based auth (when authenticated) or token-based auth
  * Note: This is a standalone async function, not a hook
  */
 export async function createGameForRoom(
   actor: any,
   roomCode: string,
-  adminToken: string,
+  adminToken: string | null,
   settings: {
     mode: 301 | 501;
     doubleOut: boolean;
-    players: string[];
-  }
+    players: PlayerAssignment[];
+  },
+  currentUserId?: string
 ): Promise<GameCreationResult> {
   try {
     if (!actor) {
       return { ok: false, message: 'Backend not available' };
-    }
-
-    if (!adminToken) {
-      return { ok: false, message: 'Admin token required. Please enter your scorer token.' };
     }
 
     // First, get the room by code (read-only, no token needed)
@@ -58,170 +71,140 @@ export async function createGameForRoom(
       return { ok: false, message: 'Room not found' };
     }
 
-    // Create a game for this room (mutation, requires token)
-    const game = await actor.createGame(room.id);
+    // Create a game for this room (mutation, requires owner or token)
+    // Pass null for adminToken if we're attempting owner-based auth
+    const game = await actor.createGame(room.id, adminToken);
 
-    // Create a mock snapshot for now (backend doesn't store full game state yet)
+    // Add players with seat assignments
+    const playerRecords: Player[] = [];
+    for (let i = 0; i < settings.players.length; i++) {
+      const playerAssignment = settings.players[i];
+      const displayName = playerAssignment.name || `Player ${i + 1}`;
+      
+      // Determine userId based on assignment
+      let userId: string | null = null;
+      if (playerAssignment.assignTo === 'me' && currentUserId) {
+        userId = currentUserId;
+      }
+
+      const player = await actor.addPlayer(
+        game.id,
+        room.id,
+        displayName,
+        userId,
+        i === 0, // First player is host
+        adminToken
+      );
+      playerRecords.push(player);
+    }
+
+    // Create a canonical snapshot
     const snapshot: GameSnapshot = {
-      gameId: game.id.toString(),
-      players: settings.players.map((name) => ({
-        name,
+      game: {
+        id: game.id.toString(),
+        mode: settings.mode,
+        double_out: settings.doubleOut,
+        status: 'pending',
+        current_player_id: playerRecords[0]?.id.toString() || '0',
+        room_id: room.id.toString(),
+      },
+      players: playerRecords.map((p, idx) => ({
+        id: p.id.toString(),
+        name: p.displayName,
+        displayName: p.displayName,
+        userId: p.userId || null,
         remaining: settings.mode,
+        seat_order: idx,
       })),
-      currentPlayerIndex: 0,
-      turnHistory: [],
-      phase: 'in-progress',
-      winner: null,
+      last_turns: [],
+      shot_events_last: [],
     };
 
     return { ok: true, snapshot };
   } catch (error) {
-    console.error('Failed to create game:', error);
+    console.error('[roomGameApi] createGameForRoom error:', error);
     return { ok: false, message: parseBackendError(error) };
   }
 }
 
 /**
- * Submit a score/turn for the current player
- * Requires admin token for authorization
- * Note: This is a standalone async function, not a hook
+ * Submit a score for the current player
  */
 export async function submitScore(
   actor: any,
-  roomCode: string,
-  adminToken: string,
   gameId: string,
   playerId: string,
   score: number,
-  currentSnapshot: GameSnapshot
+  roomCode: string,
+  adminToken: string | null
 ): Promise<ScoreMutationResult> {
   try {
     if (!actor) {
       return { ok: false, message: 'Backend not available' };
     }
 
-    if (!adminToken) {
-      return { ok: false, message: 'Admin token required. Please enter your scorer token.' };
-    }
+    // Create turn (mutation, requires owner or token)
+    const turn = await actor.createTurn(
+      BigInt(gameId),
+      BigInt(playerId),
+      BigInt(0), // turnIndex placeholder
+      adminToken
+    );
 
-    // Create turn in backend (mutation, requires token)
-    const turnIndex = BigInt(currentSnapshot.turnHistory.length);
-    await actor.createTurn(BigInt(gameId), BigInt(playerId), turnIndex, roomCode, adminToken);
-
-    // For now, compute the new snapshot locally
-    // In a full implementation, the backend would return the authoritative snapshot
-    const currentPlayer = currentSnapshot.players[currentSnapshot.currentPlayerIndex];
-    const newRemaining = currentPlayer.remaining - score;
-    
-    let isBust = false;
-    let isWin = false;
-    
-    if (newRemaining < 0 || newRemaining === 1) {
-      isBust = true;
-    } else if (newRemaining === 0) {
-      isWin = true;
-    }
-
-    const newPlayers = currentSnapshot.players.map((p, idx) => {
-      if (idx === currentSnapshot.currentPlayerIndex) {
-        return { ...p, remaining: isBust ? p.remaining : newRemaining };
-      }
-      return p;
-    });
-
-    const newSnapshot: GameSnapshot = {
-      ...currentSnapshot,
-      players: newPlayers,
-      currentPlayerIndex: isWin ? currentSnapshot.currentPlayerIndex : (currentSnapshot.currentPlayerIndex + 1) % currentSnapshot.players.length,
-      turnHistory: [
-        ...currentSnapshot.turnHistory,
-        {
-          turnNumber: currentSnapshot.turnHistory.length + 1,
-          playerIndex: currentSnapshot.currentPlayerIndex,
-          playerName: currentPlayer.name,
-          scoredPoints: isBust ? 0 : score,
-          remainingAfter: isBust ? currentPlayer.remaining : newRemaining,
-          isBust,
-          isConfirmedWin: isWin,
-          darts: [],
-          turnTotal: score,
-        },
-      ],
-      phase: isWin ? 'game-over' : 'in-progress',
-      winner: isWin ? {
-        playerIndex: currentSnapshot.currentPlayerIndex,
-        playerName: currentPlayer.name,
-        turns: currentSnapshot.turnHistory.length + 1,
-      } : null,
+    // For now, return a minimal snapshot update
+    // In production, backend would return full snapshot
+    return { 
+      ok: true, 
+      message: 'Score submitted successfully'
     };
-
-    return { ok: true, snapshot: newSnapshot };
   } catch (error) {
-    console.error('Failed to submit score:', error);
+    console.error('[roomGameApi] submitScore error:', error);
     return { ok: false, message: parseBackendError(error) };
   }
 }
 
 /**
- * Undo the last turn
- * Note: This is a local operation for now (no backend mutation)
+ * Undo the last turn (placeholder implementation)
  */
 export async function undoLastTurn(
-  currentSnapshot: GameSnapshot
+  snapshot: GameSnapshot
 ): Promise<ScoreMutationResult> {
-  try {
-    if (currentSnapshot.turnHistory.length === 0) {
-      return { ok: false, message: 'No turns to undo' };
-    }
-
-    const lastTurn = currentSnapshot.turnHistory[currentSnapshot.turnHistory.length - 1];
-    
-    // Restore player's previous remaining
-    const restoredPlayers = currentSnapshot.players.map((p, idx) => {
-      if (idx === lastTurn.playerIndex) {
-        return { ...p, remaining: p.remaining + lastTurn.scoredPoints };
-      }
-      return p;
-    });
-
-    const newSnapshot: GameSnapshot = {
-      ...currentSnapshot,
-      players: restoredPlayers,
-      currentPlayerIndex: lastTurn.playerIndex,
-      turnHistory: currentSnapshot.turnHistory.slice(0, -1),
-      phase: 'in-progress',
-      winner: null,
-    };
-
-    return { ok: true, snapshot: newSnapshot };
-  } catch (error) {
-    console.error('Failed to undo turn:', error);
-    return { ok: false, message: 'Failed to undo turn' };
-  }
+  // This is a placeholder - backend doesn't support undo yet
+  return {
+    ok: false,
+    message: 'Undo functionality not yet implemented'
+  };
 }
 
 /**
- * Edit the last turn
- * Requires admin token for authorization
+ * Claim a player seat for the authenticated user
  */
-export async function editLastTurn(
+export async function claimPlayerSeat(
   actor: any,
-  roomCode: string,
-  adminToken: string,
-  newScore: number,
-  currentSnapshot: GameSnapshot
-): Promise<ScoreMutationResult> {
+  gameId: string,
+  playerId: string
+): Promise<ClaimSeatResult> {
   try {
-    // Undo then resubmit with new score
-    const undoResult = await undoLastTurn(currentSnapshot);
-    if (!undoResult.ok || !undoResult.snapshot) {
-      return undoResult;
+    if (!actor) {
+      return { ok: false, message: 'Backend not available' };
     }
 
-    const playerId = currentSnapshot.turnHistory[currentSnapshot.turnHistory.length - 1].playerIndex.toString();
-    return await submitScore(actor, roomCode, adminToken, currentSnapshot.gameId, playerId, newScore, undoResult.snapshot);
+    // Type-safe approach: use any for the actor call since backend types may be evolving
+    const actorAny = actor as any;
+    
+    // Check if the method exists
+    if (typeof actorAny.claimPlayerSeat !== 'function') {
+      return { 
+        ok: false, 
+        message: 'Claim feature not yet available. Please check back later.' 
+      };
+    }
+
+    await actorAny.claimPlayerSeat(BigInt(gameId), BigInt(playerId));
+    
+    return { ok: true, message: 'Seat claimed successfully!' };
   } catch (error) {
-    console.error('Failed to edit turn:', error);
+    console.error('[roomGameApi] claimPlayerSeat error:', error);
     return { ok: false, message: parseBackendError(error) };
   }
 }

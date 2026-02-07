@@ -4,6 +4,12 @@ import GamePage from './pages/GamePage';
 import StatsPage from './pages/StatsPage';
 import RoomHostScorerPage from './pages/RoomHostScorerPage';
 import RoomDisplayTvPage from './pages/RoomDisplayTvPage';
+import MyAccountPage from './pages/MyAccountPage';
+import GameHistoryPage from './pages/GameHistoryPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ProfilePage from './pages/ProfilePage';
+import GameDetailsPage from './pages/GameDetailsPage';
 import AppLayout from './layouts/AppLayout';
 
 // Create root route with layout
@@ -51,6 +57,48 @@ const roomDisplayTvRoute = createRoute({
   component: RoomDisplayTvPage,
 });
 
+// Create account route (backward compatible)
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/account',
+  component: MyAccountPage,
+});
+
+// Create game history route
+const gameHistoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/history',
+  component: GameHistoryPage,
+});
+
+// Create login route
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  component: LoginPage,
+});
+
+// Create register route
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register',
+  component: RegisterPage,
+});
+
+// Create profile route
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profile',
+  component: ProfilePage,
+});
+
+// Create game details route with game ID param
+const gameDetailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/$id',
+  component: GameDetailsPage,
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -58,6 +106,12 @@ const routeTree = rootRoute.addChildren([
   statsRoute,
   roomHostScorerRoute,
   roomDisplayTvRoute,
+  accountRoute,
+  gameHistoryRoute,
+  loginRoute,
+  registerRoute,
+  profileRoute,
+  gameDetailsRoute,
 ]);
 
 // Create router

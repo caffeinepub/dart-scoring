@@ -1,13 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { GameSnapshot } from '../../lib/realtimeEventEnvelope';
+import { getPlayerDisplayName } from '../../lib/playerDisplayName';
 
 interface RecentTurnsReadOnlyProps {
   snapshot: GameSnapshot;
 }
 
 export default function RecentTurnsReadOnly({ snapshot }: RecentTurnsReadOnlyProps) {
-  const recentTurns = snapshot.turnHistory.slice(-10).reverse();
+  const recentTurns = snapshot.last_turns.slice(-10).reverse();
 
   if (recentTurns.length === 0) {
     return null;
@@ -30,29 +31,34 @@ export default function RecentTurnsReadOnly({ snapshot }: RecentTurnsReadOnlyPro
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recentTurns.map((turn) => (
-              <TableRow key={turn.turnNumber}>
-                <TableCell className="font-medium">#{turn.turnNumber}</TableCell>
-                <TableCell>{turn.playerName}</TableCell>
-                <TableCell className="text-right font-mono">
-                  {turn.isBust ? (
-                    <span className="text-destructive">BUST</span>
-                  ) : (
-                    <span>-{turn.scoredPoints}</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right font-mono font-bold">
-                  {turn.remainingAfter}
-                </TableCell>
-                <TableCell className="text-center">
-                  {turn.isConfirmedWin && (
-                    <span className="inline-block px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                      WIN
-                    </span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {recentTurns.map((turn) => {
+              const player = snapshot.players.find(p => p.id === turn.player_id);
+              const playerName = player ? getPlayerDisplayName(player) : 'Unknown';
+              
+              return (
+                <TableRow key={turn.id}>
+                  <TableCell className="font-medium">#{turn.turn_index + 1}</TableCell>
+                  <TableCell>{playerName}</TableCell>
+                  <TableCell className="text-right font-mono">
+                    {turn.is_bust ? (
+                      <span className="text-destructive">BUST</span>
+                    ) : (
+                      <span>-{turn.scored_total}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold">
+                    {turn.remaining_after}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {turn.is_win && (
+                      <span className="inline-block px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                        WIN
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>

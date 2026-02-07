@@ -56,33 +56,55 @@ export default function GamePage() {
   const handleGameSnapshot = useCallback((snapshot: GameSnapshot) => {
     if (!game) return;
 
-    // Apply snapshot to update game state
+    // Map canonical snapshot to local Game structure
+    const currentPlayerIndex = parseInt(snapshot.game.current_player_id);
+    const winnerPlayer = snapshot.game.winner_player_id 
+      ? snapshot.players.find(p => p.id === snapshot.game.winner_player_id)
+      : null;
+
     const updatedGame: Game = {
       ...game,
       players: snapshot.players.map((p) => ({
         name: p.name,
         remaining: p.remaining,
       })),
-      currentPlayerIndex: snapshot.currentPlayerIndex,
-      turnHistory: snapshot.turnHistory.map((t) => ({
-        turnNumber: t.turnNumber,
-        playerIndex: t.playerIndex,
-        playerName: t.playerName,
-        scoredPoints: t.scoredPoints,
-        remainingAfter: t.remainingAfter,
-        isBust: t.isBust,
-        isConfirmedWin: t.isConfirmedWin,
-        darts: t.darts.map((d) => ({
-          mult: d.mult as any,
-          value: d.value,
-        })),
-        turnTotal: t.turnTotal,
-        finishDart: t.finishDart,
-        previousRemaining: 0, // Not needed from snapshot
-        previousPlayerIndex: 0, // Not needed from snapshot
-      })),
-      phase: snapshot.phase,
-      winner: snapshot.winner,
+      currentPlayerIndex: isNaN(currentPlayerIndex) ? 0 : currentPlayerIndex,
+      turnHistory: snapshot.last_turns.map((t, index) => {
+        const player = snapshot.players.find(p => p.id === t.player_id);
+        const playerIndex = player ? player.seat_order : 0;
+        
+        // For previousPlayerIndex, look up the previous turn's player or default to current
+        let previousPlayerIndex = playerIndex;
+        if (index > 0) {
+          const prevTurn = snapshot.last_turns[index - 1];
+          const prevPlayer = snapshot.players.find(p => p.id === prevTurn.player_id);
+          previousPlayerIndex = prevPlayer ? prevPlayer.seat_order : playerIndex;
+        }
+        
+        return {
+          turnNumber: t.turn_index + 1,
+          playerIndex,
+          playerName: player?.name || 'Unknown',
+          scoredPoints: t.scored_total,
+          remainingAfter: t.remaining_after,
+          isBust: t.is_bust,
+          isConfirmedWin: t.is_win,
+          darts: (t.darts || []).map((d) => ({
+            mult: d.mult as any,
+            value: d.value,
+          })),
+          turnTotal: t.turn_total,
+          finishDart: t.finish_dart,
+          previousRemaining: t.remaining_before,
+          previousPlayerIndex,
+        };
+      }),
+      phase: snapshot.game.status === 'completed' ? 'game-over' : 'in-progress',
+      winner: winnerPlayer ? {
+        playerIndex: winnerPlayer.seat_order,
+        playerName: winnerPlayer.name,
+        turns: snapshot.last_turns.filter(t => t.player_id === winnerPlayer.id).length,
+      } : null,
     };
 
     setGame(updatedGame);

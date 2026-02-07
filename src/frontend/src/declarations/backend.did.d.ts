@@ -16,24 +16,72 @@ export interface Game {
   'startTime' : bigint,
   'status' : GameStatus,
   'endTime' : [] | [bigint],
+  'winnerPlayerId' : [] | [bigint],
   'roomId' : bigint,
 }
 export type GameStatus = { 'Active' : null } |
   { 'Completed' : null } |
   { 'Pending' : null };
+export interface GameWithStatistics {
+  'avg' : number,
+  'win' : boolean,
+  'startedAt' : bigint,
+  'mode' : string,
+  'gameId' : bigint,
+  'checkoutPercent' : number,
+  'place' : bigint,
+  '_180s' : bigint,
+  'doubleOut' : boolean,
+  'finishedAt' : [] | [bigint],
+}
+export interface GoogleOAuthConfig {
+  'clientId' : string,
+  'redirectUri' : string,
+  'frontendOAuthRedirect' : string,
+}
+export interface HealthCheck {
+  'name' : string,
+  'healthy' : boolean,
+  'message' : [] | [string],
+}
+export interface HealthStatus {
+  'ok' : boolean,
+  'httpCode' : number,
+  'components' : Array<HealthCheck>,
+  'message' : string,
+}
 export interface Player {
   'id' : bigint,
-  'userId' : bigint,
+  'remainingScore' : bigint,
+  'displayName' : string,
+  'userId' : [] | [string],
   'joinedAt' : bigint,
+  'gameId' : bigint,
   'isHost' : boolean,
   'roomId' : bigint,
+}
+export interface PlayerGameStats {
+  'id' : bigint,
+  'userId' : [] | [string],
+  'playerId' : bigint,
+  'createdAt' : bigint,
+  'gameId' : bigint,
+  'checkoutAttempts' : bigint,
+  'numBusts' : bigint,
+  'dartsThrown' : bigint,
+  'num180s' : bigint,
+  'avg3dart' : number,
+  'pointsScoredTotal' : bigint,
+  'checkoutSuccess' : bigint,
+  'first9Avg' : [] | [number],
 }
 export interface Room {
   'id' : bigint,
   'status' : RoomStatus,
+  'admin_token_hash' : [] | [string],
   'code' : string,
-  'adminToken' : string,
-  'hostId' : bigint,
+  'owner_user_id' : [] | [Principal],
+  'hostId' : string,
 }
 export type RoomStatus = { 'Open' : null } |
   { 'Closed' : null } |
@@ -45,32 +93,100 @@ export interface ShotEvent {
   'target' : bigint,
   'points' : bigint,
 }
+export type Time = bigint;
 export interface Turn {
   'id' : bigint,
   'playerId' : bigint,
   'gameId' : bigint,
+  'isBust' : boolean,
   'score' : bigint,
   'turnIndex' : bigint,
+  'turnTotal' : bigint,
+  'remainingBefore' : bigint,
+}
+export interface User {
+  'id' : string,
+  'username' : string,
+  'lastLoginAt' : [] | [Time],
+  'oauth_subject' : [] | [string],
+  'createdAt' : Time,
+  'email' : string,
+  'email_verified' : boolean,
+  'oauth_provider' : [] | [string],
+}
+export interface UserProfile {
+  'username' : string,
+  'name' : string,
+  'email' : string,
+}
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
+export interface UserStats {
+  'gamesPlayed' : bigint,
+  'wins' : bigint,
+  'total180s' : bigint,
+  'checkoutAttempts' : bigint,
+  'updatedAt' : bigint,
+  'first9AvgOverall' : [] | [number],
+  'checkoutSuccess' : bigint,
+  'totalBusts' : bigint,
+  'winRate' : number,
+  'avg3dartOverall' : number,
+  'checkoutRate' : number,
 }
 export interface _SERVICE {
-  'addPlayer' : ActorMethod<[bigint, bigint, boolean], Player>,
-  'createGame' : ActorMethod<[bigint], Game>,
-  'createRoom' : ActorMethod<[string, bigint, string], Room>,
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addPlayer' : ActorMethod<
+    [bigint, bigint, string, [] | [string], boolean, [] | [AdminToken]],
+    Player
+  >,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createGame' : ActorMethod<[bigint, [] | [AdminToken]], Game>,
+  'createRoomV2' : ActorMethod<
+    [string, string, boolean],
+    { 'admin_token' : [] | [string], 'room' : Room }
+  >,
   'createShotEvent' : ActorMethod<
-    [bigint, bigint, bigint, bigint, string, AdminToken],
+    [bigint, bigint, bigint, bigint, [] | [AdminToken]],
     ShotEvent
   >,
-  'createTurn' : ActorMethod<
-    [bigint, bigint, bigint, string, AdminToken],
-    Turn
-  >,
+  'createTurn' : ActorMethod<[bigint, bigint, bigint, [] | [AdminToken]], Turn>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getGame' : ActorMethod<[bigint], [] | [Game]>,
   'getGamesByRoom' : ActorMethod<[bigint], Array<Game>>,
+  'getGoogleOAuthConfig' : ActorMethod<[], GoogleOAuthConfig>,
+  'getHealthStatus' : ActorMethod<[], HealthStatus>,
+  'getMyProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getMyStats' : ActorMethod<[], [] | [UserStats]>,
+  'getPlayerGameStatsByGame' : ActorMethod<[bigint], Array<PlayerGameStats>>,
+  'getPlayerGameStatsByUser' : ActorMethod<[string], Array<PlayerGameStats>>,
+  'getPlayersByGame' : ActorMethod<[bigint], Array<Player>>,
   'getRoomByCode' : ActorMethod<[string], [] | [Room]>,
   'getShotEventsByTurn' : ActorMethod<[bigint], Array<ShotEvent>>,
   'getTurnsByGameAndIndex' : ActorMethod<[bigint, bigint], Array<Turn>>,
+  'getTurnsByGamePaginated' : ActorMethod<
+    [bigint, bigint, bigint],
+    Array<Turn>
+  >,
+  'getUserGamesParticipated' : ActorMethod<
+    [string, bigint, bigint, [] | [string], [] | [bigint], [] | [bigint]],
+    Array<GameWithStatistics>
+  >,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getUserStats' : ActorMethod<[string], [] | [UserStats]>,
   'health' : ActorMethod<[], string>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
+  'register' : ActorMethod<[string, string], User>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'setGameWinner' : ActorMethod<[bigint, bigint, [] | [AdminToken]], undefined>,
   'updateGameStatus' : ActorMethod<
-    [bigint, GameStatus, string, AdminToken],
+    [bigint, GameStatus, [] | [AdminToken]],
+    undefined
+  >,
+  'updatePlayerRemaining' : ActorMethod<
+    [bigint, bigint, [] | [AdminToken]],
     undefined
   >,
 }

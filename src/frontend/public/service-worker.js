@@ -1,4 +1,5 @@
 // Service worker for offline PWA support
+// Optimized for reverse proxy deployments
 
 const CACHE_NAME = 'dart-scoring-v1';
 const ASSETS_TO_CACHE = [
@@ -38,16 +39,19 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch event - serve from cache, fallback to network
+// Proxy-friendly: preserves asset paths and handles SPA routing
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
   // Only handle same-origin requests
+  // When behind a reverse proxy, this ensures we only cache our own assets
   if (url.origin !== self.location.origin) {
     return;
   }
 
   // For navigation requests (HTML pages), try network first, fallback to cache
+  // This ensures users get the latest version when online
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -63,6 +67,7 @@ self.addEventListener('fetch', (event) => {
           // Network failed, try cache
           return caches.match(request).then((cachedResponse) => {
             // If no cached response, return the cached index.html for SPA routing
+            // This enables offline navigation for TanStack Router
             return cachedResponse || caches.match('/index.html');
           });
         })
@@ -71,6 +76,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // For other requests (JS, CSS, images), try cache first, fallback to network
+  // This provides fast offline access to static assets
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -94,3 +100,27 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Message event - allow manual cache updates
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        );
+      })
+    );
+  }
+});
+
+// Notes for reverse proxy deployments:
+// 1. Asset paths remain unchanged - proxy should not rewrite URLs
+// 2. Cache-Control headers from proxy are respected
+// 3. SPA routing fallback to index.html works regardless of proxy
+// 4. Service worker scope is "/" - ensure proxy doesn't restrict this
+// 5. HTTPS is required for service workers (handled by proxy)

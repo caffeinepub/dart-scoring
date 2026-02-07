@@ -2,64 +2,21 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-update-the-frontend-multi-device-create-room-flow-to-capture-and-persist-the-returned-scorer-admin-token-for-the-created-room-e-g-in-localstorage-keyed-by-room-code-and-use-it-automatically-for-host-scorer-actions-on-that-device",
-      "featureTitle": "Update the frontend multi-device Create Room flow to capture and persist the returned scorer/admin token for the created room (e.g., in localStorage keyed by room code) and use it automatically for Host / Scorer actions on that device.",
+      "featureId": "feature-document-how-to-configure-the-four-google-oauth-values-for-local-development-and-production-including-where-and-how-a-developer-should-set-them-and-list-the-dev-defaults-documentation-must-explicitly-state-that-existing-authentication-settings-are-unchanged-by-this-configuration-step",
+      "featureTitle": "Document how to configure the four Google OAuth values for local development and production, including where and how a developer should set them, and list the dev defaults. Documentation must explicitly state that existing authentication settings are unchanged by this configuration step.",
       "files": [
-        "frontend/src/lib/adminTokenStorage.ts",
-        "frontend/src/lib/roomsApi.ts",
-        "frontend/src/pages/RoomHostScorerPage.tsx",
-        "frontend/src/pages/StartGamePage.tsx"
+        "frontend/docs/configuration.md"
       ],
       "components": [
         "core-infrastructure@1.0.2",
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
       ],
       "testIds": [
-        "REQ-94"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-a-minimal-frontend-ui-for-the-host-scorer-role-to-handle-scorer-admin-tokens-across-devices-allow-the-user-to-enter-a-scorer-token-when-joining-a-room-or-when-opening-host-scorer-without-a-saved-token-persist-it-locally-for-that-room-code-and-clearly-show-an-english-error-state-when-the-token-is-invalid",
-      "featureTitle": "Add a minimal frontend UI for the Host / Scorer role to handle scorer/admin tokens across devices: allow the user to enter a scorer token when joining a room (or when opening Host / Scorer without a saved token), persist it locally for that room code, and clearly show an English error state when the token is invalid.",
-      "files": [
-        "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
-        "frontend/src/pages/RoomHostScorerPage.tsx",
-        "frontend/src/pages/StartGamePage.tsx"
-      ],
-      "components": [
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-95"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-plumb-the-admin-token-through-existing-frontend-api-helper-functions-used-by-the-host-scorer-screen-e-g-functions-in-frontend-src-lib-roomgameapi-ts-and-frontend-src-lib-roomsapi-ts-so-that-all-state-mutating-actor-calls-include-the-token-parameter-while-read-only-calls-remain-unchanged",
-      "featureTitle": "Plumb the admin token through existing frontend API helper functions used by the Host / Scorer screen (e.g., functions in `frontend/src/lib/roomGameApi.ts` and `frontend/src/lib/roomsApi.ts`) so that all state-mutating actor calls include the token parameter, while read-only calls remain unchanged.",
-      "files": [
-        "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
-        "frontend/src/lib/roomGameApi.ts",
-        "frontend/src/lib/roomsApi.ts",
-        "frontend/src/pages/RoomHostScorerPage.tsx"
-      ],
-      "components": [
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-96"
+        "REQ-151"
       ],
       "confidence": "high"
     }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 37,
-  "summary": "Build a PWA web app \"Dart Scoring\" using Next.js + React + TypeScript, with tablet/phone-friendly UI plus core game state/data model and deterministic scoring rules (including optional per-dart 3-dart turn entry). Add basic \"pro\" features: an optional checkout helper (for remaining <= 170) and per-game player statistics with a Stats screen. Extend the app with 1–3 camera/video preview sources (Webcam via getUserMedia and HLS URL) shown on the /game screen, plus a Manual Review flow to review/edit the last turn and replay game state, and add a ShotEvent data model + ScoringProvider interface stub as foundation for future auto-scoring. Add a backend service where the backend is the source of truth for game state, including endpoints to create turns (applyTurn with total or 3-darts), undo the last turn, and edit a turn with deterministic replay of subsequent turns, returning an updated game snapshot after each operation. For MVP multi-device play, add simple token-based protection (no user accounts): generate a scorer/admin token when creating a room/game and require it via X-ADMIN-TOKEN header for state-mutating endpoints; TV/display views remain read-only and require only the room code.",
+  "projectStateVersion": 59,
+  "summary": "Extend the Dart Scoring app backend with full user accounts and authentication: Users table with password hashing (bcrypt/argon2), JWT access/refresh tokens, refresh_tokens storage, and auth endpoints (/auth/register, /auth/login, /auth/refresh, /auth/logout, /me) protected via get_current_user() middleware/dependency. This adds an account-based auth layer in addition to the existing token-based MVP room/game protection.",
   "architectural_notes": [
     "Tech stack: Next.js + React + TypeScript; target is a PWA.",
     "Initial routes/pages required: / (Start Game) and /game (Game Screen).",
@@ -536,6 +536,166 @@
         "REQ-96"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-create-a-deployment-guide-in-english-describing-how-to-run-the-app-in-both-development-and-production-on-the-internet-computer-toolchain-not-docker-including-prerequisites-local-dev-steps-production-deploy-steps-how-to-verify-the-backend-health-check-and-how-to-build-serve-the-frontend-assets",
+      "title": "Create a deployment guide in English describing how to run the app in both development and production on the Internet Computer toolchain (not Docker), including: prerequisites, local dev steps, production deploy steps, how to verify the backend health check, and how to build/serve the frontend assets.",
+      "reqIds": [
+        "REQ-98"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-document-and-implement-an-environment-configuration-approach-compatible-with-internet-computer-deployments-no-docker-env-for-the-canister-clearly-list-all-configuration-values-needed-by-the-app-and-where-they-are-set-for-a-frontend-build-runtime-and-b-backend-canister-initialization-upgrade-using-safe-defaults-so-the-project-runs-out-of-the-box",
+      "title": "Document and implement an environment-configuration approach compatible with Internet Computer deployments (no Docker `.env` for the canister). Clearly list all configuration values needed by the app and where they are set for (a) frontend build/runtime and (b) backend canister initialization/upgrade, using safe defaults so the project runs out-of-the-box.",
+      "reqIds": [
+        "REQ-99"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-provide-an-optional-reverse-proxy-configuration-example-caddy-or-nginx-and-guidance-so-the-application-works-correctly-behind-a-proxy-the-guidance-must-cover-forwarding-headers-serving-the-frontend-and-proxying-requests-to-the-ic-boundary-gateway-urls-without-breaking-routing-or-pwa-assets",
+      "title": "Provide an optional reverse-proxy configuration example (Caddy or Nginx) and guidance so the application works correctly behind a proxy. The guidance must cover: forwarding headers, serving the frontend, and proxying requests to the IC boundary/gateway URLs without breaking routing or PWA assets.",
+      "reqIds": [
+        "REQ-100"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-frontend-snapshot-type-definitions-to-match-the-newly-defined-canonical-backend-snapshot-schema-and-adjust-realtime-event-typing-accordingly-align-frontend-src-lib-realtimeeventenvelope-ts-so-that-the-game-snapshot-payload-matches-the-backend-s-game-players-last-turns-shot-events-last-structure-and-can-be-consumed-consistently-by-host-scorer-and-display-tv-screens",
+      "title": "Update the frontend snapshot type definitions to match the newly defined canonical backend snapshot schema, and adjust realtime event typing accordingly. Align `frontend/src/lib/realtimeEventEnvelope.ts` so that the `GAME_SNAPSHOT` payload matches the backend’s `game/players/last_turns/shot_events_last` structure and can be consumed consistently by Host/Scorer and Display/TV screens.",
+      "reqIds": [
+        "REQ-102"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-refactor-multi-device-ui-code-paths-to-consume-the-canonical-snapshot-shape-no-additional-fetches-required-update-the-display-tv-scoreboard-and-recent-turns-components-pages-to-read-from-snapshot-game-snapshot-players-and-snapshot-last-turns-update-host-scorer-api-helper-s-to-stop-constructing-mock-snapshots-and-instead-use-the-backend-returned-snapshot-as-the-source-of-truth",
+      "title": "Refactor multi-device UI code paths to consume the canonical snapshot shape (no additional fetches required). Update the Display/TV scoreboard and recent turns components/pages to read from `snapshot.game`, `snapshot.players`, and `snapshot.last_turns`. Update Host/Scorer API helper(s) to stop constructing “mock” snapshots and instead use the backend-returned snapshot as the source of truth.",
+      "reqIds": [
+        "REQ-103"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-developer-facing-documentation-for-the-snapshot-api-contract-in-english-including-field-names-types-and-semantics-and-explicitly-state-that-the-frontend-should-be-able-to-render-from-the-snapshot-without-extra-requests-document-how-the-snapshot-is-carried-over-realtime-events-type-game-snapshot-payload-snapshot",
+      "title": "Add developer-facing documentation for the snapshot API contract in English, including field names, types, and semantics, and explicitly state that the frontend should be able to render from the snapshot without extra requests. Document how the snapshot is carried over realtime events (`{ type: \"GAME_SNAPSHOT\", payload: <snapshot> }`).",
+      "reqIds": [
+        "REQ-104"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-minimal-frontend-account-ui-using-the-existing-internet-identity-integration-provide-a-sign-in-button-that-triggers-internet-identity-login-a-sign-out-button-that-clears-the-identity-and-a-simple-my-account-view-that-displays-the-current-user-profile-email-username-from-the-backend-me-equivalent-method-if-the-user-is-logged-in-via-internet-identity-but-has-no-backend-profile-yet-prompt-them-to-create-one-username-optional-email-with-english-validation-errors",
+      "title": "Add a minimal frontend account UI using the existing Internet Identity integration: provide a sign-in button that triggers Internet Identity login, a sign-out button that clears the identity, and a simple “My Account” view that displays the current user profile (email, username) from the backend `me`-equivalent method. If the user is logged in via Internet Identity but has no backend profile yet, prompt them to create one (username + optional email) with English validation errors.",
+      "reqIds": [
+        "REQ-107"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-canonical-snapshot-types-consumed-by-the-multi-device-frontend-so-each-player-includes-the-new-linking-fields-user-id-nullable-and-display-name-while-keeping-backward-compatibility-for-existing-ui-usages-that-rely-on-name-ensure-the-frontend-prefers-showing-display-name-when-present-for-all-player-name-rendering-in-multi-device-screens-host-scorer-and-display-tv",
+      "title": "Update the canonical snapshot/types consumed by the multi-device frontend so each player includes the new linking fields (`user_id` nullable and `display_name`) while keeping backward compatibility for existing UI usages that rely on `name`. Ensure the frontend prefers showing `display_name` when present for all player name rendering in multi-device screens (Host/Scorer and Display/TV).",
+      "reqIds": [
+        "REQ-111"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-minimal-touch-friendly-frontend-ui-on-the-host-scorer-game-creation-flow-to-optionally-assign-each-player-seat-to-either-guest-or-the-currently-signed-in-user-if-available-if-the-browser-is-not-signed-in-or-no-profile-exists-only-guest-assignment-is-available-use-english-labels",
+      "title": "Add a minimal, touch-friendly frontend UI on the Host/Scorer game creation flow to optionally assign each player seat to either Guest or the currently signed-in user (if available). If the browser is not signed in or no profile exists, only Guest assignment is available. Use English labels.",
+      "reqIds": [
+        "REQ-112"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-minimal-frontend-flow-for-a-logged-in-user-to-claim-a-seat-using-the-backend-claim-method-equivalent-to-post-games-game-id-players-player-id-claim-the-ui-must-show-clear-english-success-error-feedback-the-claim-action-must-be-disabled-hidden-when-the-user-is-not-authenticated",
+      "title": "Add a minimal frontend flow for a logged-in user to claim a seat using the backend claim method (equivalent to `POST /games/{game_id}/players/{player_id}/claim`). The UI must show clear English success/error feedback. The claim action must be disabled/hidden when the user is not authenticated.",
+      "reqIds": [
+        "REQ-113"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-frontend-multi-device-room-apis-and-pages-to-align-with-the-new-authorization-model-allow-host-scorer-mutations-to-succeed-either-via-stored-admin-token-or-by-being-the-authenticated-room-owner-and-ensure-read-only-room-game-fetches-remain-tokenless",
+      "title": "Update the frontend multi-device room APIs and pages to align with the new authorization model: allow host/scorer mutations to succeed either via stored admin token OR by being the authenticated room owner, and ensure read-only room/game fetches remain tokenless.",
+      "reqIds": [
+        "REQ-135"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-new-tanstack-router-routes-to-match-the-requested-paths-without-removing-existing-routes-implement-login-register-profile-and-games-id-game-details-keep-the-existing-account-route-working-but-add-navigation-so-the-header-and-in-app-links-prefer-the-new-profile-route-for-authenticated-users",
+      "title": "Add new TanStack Router routes to match the requested paths, without removing existing routes: implement `/login`, `/register`, `/profile`, and `/games/$id` (game details). Keep the existing `/account` route working, but add navigation so the header and in-app links prefer the new `/profile` route for authenticated users.",
+      "reqIds": [
+        "REQ-137"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-login-page-ui-using-the-existing-internet-identity-authentication-integration-show-a-primary-sign-in-action-triggers-internet-identity-login-and-when-already-authenticated-redirect-or-offer-a-clear-navigation-action-to-profile-all-user-facing-text-must-be-in-english",
+      "title": "Implement `/login` page UI using the existing Internet Identity authentication integration: show a primary \"Sign in\" action (triggers Internet Identity login) and, when already authenticated, redirect or offer a clear navigation action to `/profile`. All user-facing text must be in English.",
+      "reqIds": [
+        "REQ-138"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-register-page-ui-for-authenticated-users-who-do-not-yet-have-a-backend-profile-provide-a-form-to-set-username-required-and-email-optional-submit-via-the-existing-backend-register-email-username-actor-method-and-on-success-navigate-to-profile-if-the-user-is-not-authenticated-show-an-english-message-instructing-them-to-sign-in-first-and-provide-a-button-to-go-to-login",
+      "title": "Implement `/register` page UI for authenticated users who do not yet have a backend profile: provide a form to set \"Username\" (required) and \"Email\" (optional), submit via the existing backend `register(email, username)` actor method, and on success navigate to `/profile`. If the user is not authenticated, show an English message instructing them to sign in first and provide a button to go to `/login`.",
+      "reqIds": [
+        "REQ-139"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-profile-page-that-displays-1-the-current-user-s-profile-at-minimum-username-email-if-available-and-2-the-user-s-aggregated-statistics-using-the-existing-stats-hook-usemystats-provide-a-sign-out-action-if-the-user-is-authenticated-but-has-no-profile-yet-redirect-or-guide-them-to-register-with-an-english-explanation",
+      "title": "Implement `/profile` page that displays: (1) the current user’s profile (at minimum: username; email if available) and (2) the user’s aggregated statistics using the existing stats hook (`useMyStats`). Provide a \"Sign out\" action. If the user is authenticated but has no profile yet, redirect or guide them to `/register` with an English explanation.",
+      "reqIds": [
+        "REQ-140"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-backend-me-equivalent-query-method-that-returns-the-caller-s-user-profile-username-email-etc-as-an-option-result-style-response-non-trapping-for-expected-cases-update-frontend-profile-related-screens-to-use-this-method-to-determine-whether-a-profile-exists-instead-of-relying-on-the-current-attempt-to-register-and-infer-workaround",
+      "title": "Add a backend `me`-equivalent query method that returns the caller’s user profile (username/email/etc.) as an `Option`/Result-style response (non-trapping for expected cases). Update frontend profile-related screens to use this method to determine whether a profile exists, instead of relying on the current \"attempt to register and infer\" workaround.",
+      "reqIds": [
+        "REQ-141"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-enhance-history-existing-gamehistorypage-to-support-filters-for-the-user-s-game-list-1-mode-filter-301-501-or-all-2-date-range-filter-from-to-and-3-pagination-remains-functional-wire-filters-to-the-existing-useusergamehistory-userid-mode-from-to-limit-offset-hook-reset-pagination-offset-to-0-when-filters-change-and-keep-all-user-facing-text-in-english",
+      "title": "Enhance `/history` (existing GameHistoryPage) to support filters for the user’s game list: (1) mode filter (301/501 or All), (2) date range filter (From / To), and (3) pagination remains functional. Wire filters to the existing `useUserGameHistory(userId, { mode, from, to, limit, offset })` hook, reset pagination offset to 0 when filters change, and keep all user-facing text in English.",
+      "reqIds": [
+        "REQ-142"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-make-each-row-in-history-navigable-to-games-id-for-that-game-e-g-row-click-or-a-details-button-implement-games-id-page-to-show-a-minimal-match-detail-view-game-metadata-mode-double-out-started-finished-timestamps-if-available-and-a-turns-list-using-the-existing-usegameturns-gameid-limit-offset-hook-with-pagination-defer-charts-heatmaps-to-a-later-iteration",
+      "title": "Make each row in `/history` navigable to `/games/$id` for that game (e.g., row click or a \"Details\" button). Implement `/games/$id` page to show a minimal match detail view: game metadata (mode, double out, started/finished timestamps if available) and a turns list using the existing `useGameTurns(gameId, limit, offset)` hook with pagination. Defer charts/heatmaps to a later iteration.",
+      "reqIds": [
+        "REQ-143"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-an-authentication-session-handling-abstraction-on-the-frontend-that-is-compatible-with-the-current-internet-identity-flow-but-can-accommodate-the-requested-token-approach-later-keep-any-access-credential-in-memory-only-no-localstorage-persistence-and-centralize-session-refresh-logic-behind-a-single-interface-add-clear-code-comments-documenting-that-refresh-token-in-httponly-cookie-is-a-future-option-only-if-when-a-non-internet-identity-token-backend-is-introduced",
+      "title": "Implement an authentication/session handling abstraction on the frontend that is compatible with the current Internet Identity flow but can accommodate the requested token approach later: keep any access credential in memory only (no localStorage persistence), and centralize \"session refresh\" logic behind a single interface. Add clear code comments documenting that \"refresh token in httpOnly cookie\" is a future option only if/when a non-Internet-Identity token backend is introduced.",
+      "reqIds": [
+        "REQ-144"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-document-how-to-configure-the-four-google-oauth-values-for-local-development-and-production-including-where-and-how-a-developer-should-set-them-and-list-the-dev-defaults-documentation-must-explicitly-state-that-existing-authentication-settings-are-unchanged-by-this-configuration-step",
+      "title": "Document how to configure the four Google OAuth values for local development and production, including where and how a developer should set them, and list the dev defaults. Documentation must explicitly state that existing authentication settings are unchanged by this configuration step.",
+      "reqIds": [
+        "REQ-151"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -952,6 +1112,352 @@
       "summary": "Ensure TV/display read-only flows do not require any token and continue to work using only the room code/game identifier (including realtime subscription).",
       "reqIds": [
         "REQ-93"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-63",
+      "summary": "Prepare a simple, stable deployment package for the backend: docker-compose (backend + Postgres), documented environment variables, optional reverse proxy config (Caddy/Nginx) with backend working correctly behind proxy, /health endpoint verification, and step-by-step run instructions for dev and prod",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-64",
+      "summary": "Add a stable, proxy-friendly health check on the backend canister that is callable without prerequisites and returns a structured value equivalent to `GET /health -> {\"ok\": true}` (not a human-readable string). Keep the existing `health()` method working for backward compatibility if it is already referenced anywhere, but introduce a new canonical health method that is machine-readable.",
+      "reqIds": [
+        "REQ-97"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-65",
+      "summary": "Define and document the backend Game Snapshot schema/contract returned by game endpoints/mutations, including game fields (id, mode, double_out, status, current_player_id, ...), players (id, name, remaining, seat_order, stats), last_turns, and shot_events_last so the frontend can render without extra requests",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-66",
+      "summary": "Define a canonical backend “Game Snapshot” response schema and return it from backend game read/mutation paths so the frontend can render a complete game view without additional requests. The snapshot must contain these top-level keys: `game`, `players`, `last_turns`, `shot_events_last`.\n\nMinimum required fields:\n- `game`: `{ id, mode, double_out, status, current_player_id, room_id?, started_at?, finished_at?, winner_player_id? }`\n- `players`: array of `{ id, name, remaining, seat_order, stats }` (stats may be a JSON/text blob but must be present)\n- `last_turns`: array of turn objects sufficient to render recent turns (include ids, player reference, ordering/index, totals, bust/win flags, remaining before/after, and any darts breakdown if available)\n- `shot_events_last`: array of shot-event objects sufficient to render recent shot events (include ids, timestamp, source, status, and proposed totals/darts if present)\n\nThe backend must ensure the snapshot is self-contained: it must include everything needed for the UI to show current player, scoreboard (remaining), recent turns, and recent shot events without requiring follow-up calls.",
+      "reqIds": [
+        "REQ-101"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-67",
+      "summary": "Add full user accounts + authentication: extend/create users table (id uuid, email unique, username unique, password_hash, created_at, last_login_at); implement password hashing (bcrypt/argon2); implement JWT auth with access token (15–60 min) + refresh token (~30 days) stored in refresh_tokens table (id, user_id, token_hash, expires_at, revoked_at); add endpoints POST /auth/register, POST /auth/login (email_or_username,password -> access_token, refresh_token, user), POST /auth/refresh, POST /auth/logout (revoke refresh), GET /me (requires JWT); add middleware/dependency get_current_user() to protect endpoints",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-68",
+      "summary": "Implement a backend user account registry in `backend/main.mo` using Internet Identity (caller `Principal`) as the authentication mechanism. Add a `User` record with fields analogous to the requested schema (id, email, username, createdAt, lastLoginAt) and store users in-canister, keyed by caller principal (and maintain uniqueness indexes for `email` and `username`).",
+      "reqIds": [
+        "REQ-105"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-69",
+      "summary": "Add backend methods that provide a practical equivalent of the requested auth endpoints but adapted to Internet Identity: (1) create/update the caller’s profile (register), (2) fetch the current user (GET /me equivalent), and (3) clear/remove the user profile (optional logout-equivalent for app data). These methods must rely on `caller` identity and must not require passwords or JWTs.",
+      "reqIds": [
+        "REQ-106"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-70",
+      "summary": "Add player↔user profile linking: extend `players` with nullable `user_id` (FK to users) and `display_name` (in-game name; default to user.username when logged in). Support game creation flow where logged-in seats can be assigned to a `user_id` or set as Guest (`user_id=null`). Add endpoint `POST /games/{game_id}/players/{player_id}/claim` allowing a logged-in user to claim/attach to a player with constraints (e.g., only before game start and/or only room admin can claim).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-71",
+      "summary": "Extend the backend Player data model to distinguish between an in-game player (seat) and an authenticated account by adding: (1) `user_id` as a nullable reference to a User profile, and (2) `display_name` as the text used in-game (defaulting to the linked user’s username when linked). Preserve existing player identity fields and ensure guest seats are represented with `user_id = null`.",
+      "reqIds": [
+        "REQ-108"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-72",
+      "summary": "Update backend game creation / player creation flows to support seat assignment to either a logged-in user profile (`user_id`) or Guest (`user_id = null`). When the caller is authenticated and a seat is assigned to the caller’s user, default `display_name` to the caller’s `username`.",
+      "reqIds": [
+        "REQ-109"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-73",
+      "summary": "Implement a backend method equivalent to the requested endpoint `POST /games/{game_id}/players/{player_id}/claim` that allows an authenticated Internet Identity caller to claim/attach their user profile to an existing player seat by setting `player.user_id` and updating `player.display_name` (defaulting to the user’s `username` if needed). Include server-side authorization constraints: the claim must be allowed only when the game has not started yet (e.g., game status is Pending) OR when a valid room admin/scorer token is provided.",
+      "reqIds": [
+        "REQ-110"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-77",
+      "summary": "If the backend state layout changes introduced by player linking are incompatible with existing deployed canister state, add/adjust `backend/migration.mo` according to the project migration policy so upgrades do not brick the canister. If no safe migration is feasible, perform an explicit deterministic reset and document it in code comments.",
+      "reqIds": [
+        "REQ-114"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-78",
+      "summary": "Add per-user Game Library / history APIs: implement GET /users/{user_id}/games with pagination + filters (mode, from/to) returning participation list with fields (game_id, started_at, finished_at, mode, double_out, place/rank, avg, 180s, checkout%, win); extend GET /games/{game_id} snapshot to include final result for winner (remaining=0) and provide full turns list via paginated GET /games/{game_id}/turns; ensure DB/schema includes games.finished_at and games.winner_player_id and that finishing a game persists winner + finished_at and final scores",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-79",
+      "summary": "Extend the backend in-canister Game data model to persist completed-game metadata by adding: (1) `finished_at` timestamp and (2) `winner_player_id` (nullable) to each game record, and ensure these fields are returned wherever a game is returned in backend APIs.",
+      "reqIds": [
+        "REQ-115"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-80",
+      "summary": "Ensure that when a game is finished/completed by backend gameplay logic, the backend persists the final result by setting `games.finished_at` and `games.winner_player_id` and keeping player remaining scores consistent with the final outcome (winner remaining must be 0).",
+      "reqIds": [
+        "REQ-116"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-81",
+      "summary": "Add a backend query API equivalent to `GET /users/{user_id}/games?limit=&offset=&mode=&from=&to=` that returns a paginated list of games in which the user participated (participation defined as `player.user_id == user_id`). Support optional filters: mode, from timestamp, to timestamp, plus limit/offset pagination.",
+      "reqIds": [
+        "REQ-117"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-82",
+      "summary": "For the `GET /users/{user_id}/games` participation list response, return per-game/per-user fields: `game_id`, `started_at`, `finished_at`, `mode`, `double_out`, `place` (or `rank`), `avg`, `180s`, `checkout%`, and `win` (boolean) computed for that user’s player seat in that game.",
+      "reqIds": [
+        "REQ-118"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-83",
+      "summary": "Extend the backend game read API equivalent to `GET /games/{game_id}` (snapshot) so that for completed games it includes explicit final result information: winner (by `winner_player_id`) and confirmation that the winner’s remaining is 0, in addition to existing snapshot fields.",
+      "reqIds": [
+        "REQ-119"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-84",
+      "summary": "Provide access to the full list of turns for a game via a paginated backend query equivalent to `GET /games/{game_id}/turns?limit&offset`. This must return turns in chronological order (turn_index ascending) and support limit/offset pagination.",
+      "reqIds": [
+        "REQ-120"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-85",
+      "summary": "Update backend error handling for the new history/turn-list APIs so that expected client errors (e.g., game not found, invalid pagination parameters) return structured, non-trapping errors with machine-readable codes and English messages, rather than trapping.",
+      "reqIds": [
+        "REQ-121"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-86",
+      "summary": "Add cached per-user aggregated stats: create user_stats storage/table (games_played, wins, win_rate, avg_3dart_overall, optional first9_avg_overall, checkout_attempts/success/rate, total_180s, total_busts, updated_at); recompute stats for users involved after game finish (preferred) and expose GET /me/stats and GET /users/{id}/stats endpoints returning user_stats",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-87",
+      "summary": "Add a new backend in-canister storage table/map for cached per-user aggregated statistics named `user_stats`, keyed by `user_id` (the authenticated Internet Identity Principal as Text), with the following fields: `games_played`, `wins`, `win_rate`, `avg_3dart_overall`, optional `first9_avg_overall`, `checkout_attempts`, `checkout_success`, `checkout_rate`, `total_180s`, `total_busts`, and `updated_at`.",
+      "reqIds": [
+        "REQ-122"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-88",
+      "summary": "Implement backend stats recomputation for all users participating in a game when the game is completed (preferred), using the game’s turns as the source of truth, and persist the updated `user_stats` records for each affected `user_id`.",
+      "reqIds": [
+        "REQ-123"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-89",
+      "summary": "Define and implement the exact aggregated-stat calculation rules for `user_stats` based on completed games:\n- `games_played`: count of completed games where the user participated (`player.userId == user_id`).\n- `wins`: count of those games where that user’s player seat is the winner.\n- `win_rate = wins / games_played` (0 when `games_played == 0`).\n- `avg_3dart_overall`: across all the user’s turns in completed games, compute `avg = (sum_scored_points / darts_thrown) * 3`.\n  - MVP darts-thrown rule: count darts as 3 per turn; in 3-darts mode also exactly 3.\n- `total_180s`: count turns with `turnTotal == 180`.\n- `total_busts`: count turns where `turn.is_bust == true`.\n- `checkout_attempts`, `checkout_success`, `checkout_rate`: MVP simplification allowed:\n  - Attempt: a turn where `remaining_before <= 170`.\n  - Success: an attempt turn that finishes the game for that player (turn results in a valid finish, i.e., game completed and this player is the winner, and the finishing turn is attributable to that player).\n  - `checkout_rate = checkout_success / checkout_attempts` (0 when attempts == 0).\n- `first9_avg_overall` is optional; if implemented, define it clearly and ensure it is consistent across all users.",
+      "reqIds": [
+        "REQ-124"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-90",
+      "summary": "Extend/adjust backend stored turn data so that stats recomputation can be performed without guessing. At minimum, ensure turns persisted for completed games contain fields required by the rules: `turnTotal` (or equivalent numeric total), `is_bust`, and `remaining_before` (for checkout attempts). If the backend already has richer turn schema elsewhere, align the stats computation to that canonical schema; otherwise, evolve the `Turn` type and storage accordingly while keeping the canister upgrade-safe per the migration policy.",
+      "reqIds": [
+        "REQ-125"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-91",
+      "summary": "Expose backend query endpoints equivalent to:\n- `GET /me/stats` → return the caller’s `user_stats` record.\n- `GET /users/{id}/stats` → return the `user_stats` record for the specified `user_id`.\nImplement these as Motoko actor methods that return the cached stats (or a clear, structured not-found result) without trapping for expected cases.",
+      "reqIds": [
+        "REQ-126"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-92",
+      "summary": "Add per-game per-player stats persistence: create a `player_game_stats` table/map (id, game_id, player_id, user_id nullable, darts_thrown, points_scored_total, avg_3dart, optional first9_avg, num_180s, num_busts, checkout_attempts, checkout_success, created_at) and populate/update it when a game is finished (on finish game).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-93",
+      "summary": "Add a new backend storage table/map named `player_game_stats` that persists per-player statistics for a specific finished game, with the following fields: `id`, `game_id`, `player_id`, `user_id` (nullable), `darts_thrown`, `points_scored_total`, `avg_3dart`, `first9_avg` (optional/nullable), `num_180s`, `num_busts`, `checkout_attempts`, `checkout_success`, `created_at`. The data must be stored in-canister in `backend/main.mo` and survive across queries.",
+      "reqIds": [
+        "REQ-127"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-94",
+      "summary": "Populate `player_game_stats` when a game is finished. When the backend marks a game as completed (e.g., in the existing finish path `setGameWinner`), compute and persist one `player_game_stats` record per player in that game using the game’s stored turns as the source of truth.",
+      "reqIds": [
+        "REQ-128"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-95",
+      "summary": "Expose backend query method(s) to retrieve `player_game_stats` so it can be used later for history/rankings. Add at minimum: (1) list stats by `game_id`, and (2) list stats by `user_id` (for completed games only). These methods must return empty arrays when no records exist and must not trap for expected 'not found' cases.",
+      "reqIds": [
+        "REQ-129"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-96",
+      "summary": "Ensure the canister upgrade path remains safe after adding `player_game_stats`. If adding the new storage changes the stable state layout, implement/adjust `backend/migration.mo` according to the project migration policy so upgrades do not brick the canister; initialize `player_game_stats` to an empty collection when upgrading from older state.",
+      "reqIds": [
+        "REQ-130"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-97",
+      "summary": "Rooms permissions & security: extend Room with owner_user_id (nullable, set when logged-in user creates room) and admin_token_hash (for no-account mode). Enforce that all state-mutating game operations require either the room owner’s JWT or an X-ADMIN-TOKEN; keep scoreboard viewing public via room code or game_id.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-98",
+      "summary": "Extend the backend Room data model to include `owner_user_id` (nullable) and `admin_token_hash` (for no-account mode), and stop storing or returning the raw admin token except at creation time.",
+      "reqIds": [
+        "REQ-131"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-99",
+      "summary": "Implement authorization rules for all backend state-mutating room/game operations so that they require either (a) the room owner (authenticated Internet Identity caller matching `owner_user_id`) OR (b) a valid admin token provided by the caller (validated by hashing and comparing with `admin_token_hash`).",
+      "reqIds": [
+        "REQ-132"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-100",
+      "summary": "Update backend room creation to support both modes: (1) account mode where a logged-in creator becomes `owner_user_id` and may also receive a generated admin token (optional), and (2) no-account mode where `owner_user_id` is null and an admin token is generated and returned once, but only its hash is stored.",
+      "reqIds": [
+        "REQ-133"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-101",
+      "summary": "Make scoreboard viewing public: backend read-only queries needed for TV/display access must be callable without authentication using either room code or game_id, while keeping write operations protected per REQ-132.",
+      "reqIds": [
+        "REQ-134"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-103",
+      "summary": "Add/adjust backend upgrade migration so existing deployed canister state remains upgrade-safe after changing the Room schema (and any related authorization/token storage changes).",
+      "reqIds": [
+        "REQ-136"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-104",
+      "summary": "Frontend (Next.js): add auth + account/history pages: /login, /register, /profile (me: username + stats), /history (user games list with filters), /games/[id] (game details incl. turns; charts/heatmaps later). Implement token handling with refresh token in httpOnly cookie (production approach) and access token kept in memory with background refresh.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-105",
+      "summary": "Extend existing `users` DB model to support Google OAuth linking by adding nullable fields `oauth_provider` (e.g., 'google') and `oauth_subject` (Google sub), plus `email_verified` (bool, default false). Add a unique index on `(oauth_provider, oauth_subject)`. Do not change existing email+password login. Provide a DB migration for these schema changes.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-106",
+      "summary": "Extend the backend `User` data model in `backend/main.mo` to include the following new fields for OAuth account linking, without changing the existing email + username registration flow:\n- `oauth_provider : ?Text` (nullable; example value: \"google\")\n- `oauth_subject : ?Text` (nullable; stores the OAuth subject, e.g. Google `sub`)\n- `email_verified : Bool` (default `false` for newly created users)\n\nEnsure existing code paths that create `User` records (e.g. `register(email, username)`) initialize these fields (`oauth_provider = null`, `oauth_subject = null`, `email_verified = false`) and continue to behave as they do today for email/username uniqueness and validation.",
+      "reqIds": [
+        "REQ-145"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-107",
+      "summary": "Add and maintain a uniqueness index for OAuth-linked identities in the backend such that the pair `(oauth_provider, oauth_subject)` is unique across all users.\n\nImplement this as an in-canister index structure (e.g., a `Map<Text, Text>` keyed by a deterministic composite key derived from provider + subject) and ensure it is enforced whenever a user record is created or updated in a way that sets/changes both `oauth_provider` and `oauth_subject` to non-null values.",
+      "reqIds": [
+        "REQ-146"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-108",
+      "summary": "Add an explicit backend migration step for the new `User` fields and OAuth uniqueness index so upgrades do not break the canister when moving from an older deployed version.\n\nFollow the project migration policy (conditional migration). If a dedicated migration file does not exist in the repo, create `backend/migration.mo` and wire it according to the project’s existing upgrade approach so that:\n- existing users gain the new fields with safe defaults (`oauth_provider = null`, `oauth_subject = null`, `email_verified = false`)\n- the new OAuth uniqueness index is initialized and (if possible) backfilled from existing user data\n\nIf no safe migration is feasible for existing deployed state, perform an explicit deterministic reset and document it in code comments (English).",
+      "reqIds": [
+        "REQ-147"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-109",
+      "summary": "Add backend configuration for Google OAuth via environment variables: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_OAUTH_REDIRECT; provide sensible dev defaults and document in README; do not change existing auth settings.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-110",
+      "summary": "Add backend configuration plumbing for Google OAuth using the following configuration keys (names must match exactly): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_OAUTH_REDIRECT. The backend must have a single authoritative configuration object/record for these values, and it must be safe to run in local development without any secrets by using sensible non-empty defaults.",
+      "reqIds": [
+        "REQ-148"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-111",
+      "summary": "Expose a backend query method to retrieve the current Google OAuth configuration in a safe shape suitable for frontend usage, ensuring that secrets are not leaked (GOOGLE_CLIENT_SECRET must not be returned).",
+      "reqIds": [
+        "REQ-149"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-112",
+      "summary": "Update upgrade safety to account for any new stable configuration state introduced for Google OAuth, following the project’s conditional migration policy so canister upgrades do not brick existing deployments.",
+      "reqIds": [
+        "REQ-150"
       ],
       "status": "pending"
     }

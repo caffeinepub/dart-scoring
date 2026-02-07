@@ -8,12 +8,21 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const AdminToken = IDL.Text;
 export const Player = IDL.Record({
   'id' : IDL.Nat,
-  'userId' : IDL.Nat,
+  'remainingScore' : IDL.Int,
+  'displayName' : IDL.Text,
+  'userId' : IDL.Opt(IDL.Text),
   'joinedAt' : IDL.Nat,
+  'gameId' : IDL.Nat,
   'isHost' : IDL.Bool,
   'roomId' : IDL.Nat,
+});
+export const UserRole = IDL.Variant({
+  'admin' : IDL.Null,
+  'user' : IDL.Null,
+  'guest' : IDL.Null,
 });
 export const GameStatus = IDL.Variant({
   'Active' : IDL.Null,
@@ -25,6 +34,7 @@ export const Game = IDL.Record({
   'startTime' : IDL.Int,
   'status' : GameStatus,
   'endTime' : IDL.Opt(IDL.Int),
+  'winnerPlayerId' : IDL.Opt(IDL.Nat),
   'roomId' : IDL.Nat,
 });
 export const RoomStatus = IDL.Variant({
@@ -35,11 +45,11 @@ export const RoomStatus = IDL.Variant({
 export const Room = IDL.Record({
   'id' : IDL.Nat,
   'status' : RoomStatus,
+  'admin_token_hash' : IDL.Opt(IDL.Text),
   'code' : IDL.Text,
-  'adminToken' : IDL.Text,
-  'hostId' : IDL.Nat,
+  'owner_user_id' : IDL.Opt(IDL.Principal),
+  'hostId' : IDL.Text,
 });
-export const AdminToken = IDL.Text;
 export const ShotEvent = IDL.Record({
   'id' : IDL.Nat,
   'multiplier' : IDL.Nat,
@@ -51,25 +61,135 @@ export const Turn = IDL.Record({
   'id' : IDL.Nat,
   'playerId' : IDL.Nat,
   'gameId' : IDL.Nat,
+  'isBust' : IDL.Bool,
   'score' : IDL.Nat,
   'turnIndex' : IDL.Nat,
+  'turnTotal' : IDL.Int,
+  'remainingBefore' : IDL.Int,
+});
+export const UserProfile = IDL.Record({
+  'username' : IDL.Text,
+  'name' : IDL.Text,
+  'email' : IDL.Text,
+});
+export const GoogleOAuthConfig = IDL.Record({
+  'clientId' : IDL.Text,
+  'redirectUri' : IDL.Text,
+  'frontendOAuthRedirect' : IDL.Text,
+});
+export const HealthCheck = IDL.Record({
+  'name' : IDL.Text,
+  'healthy' : IDL.Bool,
+  'message' : IDL.Opt(IDL.Text),
+});
+export const HealthStatus = IDL.Record({
+  'ok' : IDL.Bool,
+  'httpCode' : IDL.Nat16,
+  'components' : IDL.Vec(HealthCheck),
+  'message' : IDL.Text,
+});
+export const UserStats = IDL.Record({
+  'gamesPlayed' : IDL.Nat,
+  'wins' : IDL.Nat,
+  'total180s' : IDL.Nat,
+  'checkoutAttempts' : IDL.Nat,
+  'updatedAt' : IDL.Int,
+  'first9AvgOverall' : IDL.Opt(IDL.Float64),
+  'checkoutSuccess' : IDL.Nat,
+  'totalBusts' : IDL.Nat,
+  'winRate' : IDL.Float64,
+  'avg3dartOverall' : IDL.Float64,
+  'checkoutRate' : IDL.Float64,
+});
+export const PlayerGameStats = IDL.Record({
+  'id' : IDL.Nat,
+  'userId' : IDL.Opt(IDL.Text),
+  'playerId' : IDL.Nat,
+  'createdAt' : IDL.Int,
+  'gameId' : IDL.Nat,
+  'checkoutAttempts' : IDL.Nat,
+  'numBusts' : IDL.Nat,
+  'dartsThrown' : IDL.Nat,
+  'num180s' : IDL.Nat,
+  'avg3dart' : IDL.Float64,
+  'pointsScoredTotal' : IDL.Nat,
+  'checkoutSuccess' : IDL.Nat,
+  'first9Avg' : IDL.Opt(IDL.Float64),
+});
+export const GameWithStatistics = IDL.Record({
+  'avg' : IDL.Float64,
+  'win' : IDL.Bool,
+  'startedAt' : IDL.Int,
+  'mode' : IDL.Text,
+  'gameId' : IDL.Nat,
+  'checkoutPercent' : IDL.Float64,
+  'place' : IDL.Nat,
+  '_180s' : IDL.Nat,
+  'doubleOut' : IDL.Bool,
+  'finishedAt' : IDL.Opt(IDL.Int),
+});
+export const Time = IDL.Int;
+export const User = IDL.Record({
+  'id' : IDL.Text,
+  'username' : IDL.Text,
+  'lastLoginAt' : IDL.Opt(Time),
+  'oauth_subject' : IDL.Opt(IDL.Text),
+  'createdAt' : Time,
+  'email' : IDL.Text,
+  'email_verified' : IDL.Bool,
+  'oauth_provider' : IDL.Opt(IDL.Text),
 });
 
 export const idlService = IDL.Service({
-  'addPlayer' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Bool], [Player], []),
-  'createGame' : IDL.Func([IDL.Nat], [Game], []),
-  'createRoom' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [Room], []),
+  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addPlayer' : IDL.Func(
+      [
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Text,
+        IDL.Opt(IDL.Text),
+        IDL.Bool,
+        IDL.Opt(AdminToken),
+      ],
+      [Player],
+      [],
+    ),
+  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'createGame' : IDL.Func([IDL.Nat, IDL.Opt(AdminToken)], [Game], []),
+  'createRoomV2' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Bool],
+      [IDL.Record({ 'admin_token' : IDL.Opt(IDL.Text), 'room' : Room })],
+      [],
+    ),
   'createShotEvent' : IDL.Func(
-      [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+      [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Opt(AdminToken)],
       [ShotEvent],
       [],
     ),
   'createTurn' : IDL.Func(
-      [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+      [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Opt(AdminToken)],
       [Turn],
       [],
     ),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getGame' : IDL.Func([IDL.Nat], [IDL.Opt(Game)], ['query']),
   'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
+  'getGoogleOAuthConfig' : IDL.Func([], [GoogleOAuthConfig], ['query']),
+  'getHealthStatus' : IDL.Func([], [HealthStatus], ['query']),
+  'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getMyStats' : IDL.Func([], [IDL.Opt(UserStats)], ['query']),
+  'getPlayerGameStatsByGame' : IDL.Func(
+      [IDL.Nat],
+      [IDL.Vec(PlayerGameStats)],
+      ['query'],
+    ),
+  'getPlayerGameStatsByUser' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(PlayerGameStats)],
+      ['query'],
+    ),
+  'getPlayersByGame' : IDL.Func([IDL.Nat], [IDL.Vec(Player)], ['query']),
   'getRoomByCode' : IDL.Func([IDL.Text], [IDL.Opt(Room)], ['query']),
   'getShotEventsByTurn' : IDL.Func([IDL.Nat], [IDL.Vec(ShotEvent)], ['query']),
   'getTurnsByGameAndIndex' : IDL.Func(
@@ -77,9 +197,41 @@ export const idlService = IDL.Service({
       [IDL.Vec(Turn)],
       ['query'],
     ),
+  'getTurnsByGamePaginated' : IDL.Func(
+      [IDL.Nat, IDL.Nat, IDL.Nat],
+      [IDL.Vec(Turn)],
+      ['query'],
+    ),
+  'getUserGamesParticipated' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Opt(IDL.Text),
+        IDL.Opt(IDL.Nat),
+        IDL.Opt(IDL.Nat),
+      ],
+      [IDL.Vec(GameWithStatistics)],
+      ['query'],
+    ),
+  'getUserProfile' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
+  'getUserStats' : IDL.Func([IDL.Text], [IDL.Opt(UserStats)], ['query']),
   'health' : IDL.Func([], [IDL.Text], ['query']),
+  'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'register' : IDL.Func([IDL.Text, IDL.Text], [User], []),
+  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'setGameWinner' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Opt(AdminToken)], [], []),
   'updateGameStatus' : IDL.Func(
-      [IDL.Nat, GameStatus, IDL.Text, AdminToken],
+      [IDL.Nat, GameStatus, IDL.Opt(AdminToken)],
+      [],
+      [],
+    ),
+  'updatePlayerRemaining' : IDL.Func(
+      [IDL.Nat, IDL.Int, IDL.Opt(AdminToken)],
       [],
       [],
     ),
@@ -88,12 +240,21 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const AdminToken = IDL.Text;
   const Player = IDL.Record({
     'id' : IDL.Nat,
-    'userId' : IDL.Nat,
+    'remainingScore' : IDL.Int,
+    'displayName' : IDL.Text,
+    'userId' : IDL.Opt(IDL.Text),
     'joinedAt' : IDL.Nat,
+    'gameId' : IDL.Nat,
     'isHost' : IDL.Bool,
     'roomId' : IDL.Nat,
+  });
+  const UserRole = IDL.Variant({
+    'admin' : IDL.Null,
+    'user' : IDL.Null,
+    'guest' : IDL.Null,
   });
   const GameStatus = IDL.Variant({
     'Active' : IDL.Null,
@@ -105,6 +266,7 @@ export const idlFactory = ({ IDL }) => {
     'startTime' : IDL.Int,
     'status' : GameStatus,
     'endTime' : IDL.Opt(IDL.Int),
+    'winnerPlayerId' : IDL.Opt(IDL.Nat),
     'roomId' : IDL.Nat,
   });
   const RoomStatus = IDL.Variant({
@@ -115,11 +277,11 @@ export const idlFactory = ({ IDL }) => {
   const Room = IDL.Record({
     'id' : IDL.Nat,
     'status' : RoomStatus,
+    'admin_token_hash' : IDL.Opt(IDL.Text),
     'code' : IDL.Text,
-    'adminToken' : IDL.Text,
-    'hostId' : IDL.Nat,
+    'owner_user_id' : IDL.Opt(IDL.Principal),
+    'hostId' : IDL.Text,
   });
-  const AdminToken = IDL.Text;
   const ShotEvent = IDL.Record({
     'id' : IDL.Nat,
     'multiplier' : IDL.Nat,
@@ -131,25 +293,135 @@ export const idlFactory = ({ IDL }) => {
     'id' : IDL.Nat,
     'playerId' : IDL.Nat,
     'gameId' : IDL.Nat,
+    'isBust' : IDL.Bool,
     'score' : IDL.Nat,
     'turnIndex' : IDL.Nat,
+    'turnTotal' : IDL.Int,
+    'remainingBefore' : IDL.Int,
+  });
+  const UserProfile = IDL.Record({
+    'username' : IDL.Text,
+    'name' : IDL.Text,
+    'email' : IDL.Text,
+  });
+  const GoogleOAuthConfig = IDL.Record({
+    'clientId' : IDL.Text,
+    'redirectUri' : IDL.Text,
+    'frontendOAuthRedirect' : IDL.Text,
+  });
+  const HealthCheck = IDL.Record({
+    'name' : IDL.Text,
+    'healthy' : IDL.Bool,
+    'message' : IDL.Opt(IDL.Text),
+  });
+  const HealthStatus = IDL.Record({
+    'ok' : IDL.Bool,
+    'httpCode' : IDL.Nat16,
+    'components' : IDL.Vec(HealthCheck),
+    'message' : IDL.Text,
+  });
+  const UserStats = IDL.Record({
+    'gamesPlayed' : IDL.Nat,
+    'wins' : IDL.Nat,
+    'total180s' : IDL.Nat,
+    'checkoutAttempts' : IDL.Nat,
+    'updatedAt' : IDL.Int,
+    'first9AvgOverall' : IDL.Opt(IDL.Float64),
+    'checkoutSuccess' : IDL.Nat,
+    'totalBusts' : IDL.Nat,
+    'winRate' : IDL.Float64,
+    'avg3dartOverall' : IDL.Float64,
+    'checkoutRate' : IDL.Float64,
+  });
+  const PlayerGameStats = IDL.Record({
+    'id' : IDL.Nat,
+    'userId' : IDL.Opt(IDL.Text),
+    'playerId' : IDL.Nat,
+    'createdAt' : IDL.Int,
+    'gameId' : IDL.Nat,
+    'checkoutAttempts' : IDL.Nat,
+    'numBusts' : IDL.Nat,
+    'dartsThrown' : IDL.Nat,
+    'num180s' : IDL.Nat,
+    'avg3dart' : IDL.Float64,
+    'pointsScoredTotal' : IDL.Nat,
+    'checkoutSuccess' : IDL.Nat,
+    'first9Avg' : IDL.Opt(IDL.Float64),
+  });
+  const GameWithStatistics = IDL.Record({
+    'avg' : IDL.Float64,
+    'win' : IDL.Bool,
+    'startedAt' : IDL.Int,
+    'mode' : IDL.Text,
+    'gameId' : IDL.Nat,
+    'checkoutPercent' : IDL.Float64,
+    'place' : IDL.Nat,
+    '_180s' : IDL.Nat,
+    'doubleOut' : IDL.Bool,
+    'finishedAt' : IDL.Opt(IDL.Int),
+  });
+  const Time = IDL.Int;
+  const User = IDL.Record({
+    'id' : IDL.Text,
+    'username' : IDL.Text,
+    'lastLoginAt' : IDL.Opt(Time),
+    'oauth_subject' : IDL.Opt(IDL.Text),
+    'createdAt' : Time,
+    'email' : IDL.Text,
+    'email_verified' : IDL.Bool,
+    'oauth_provider' : IDL.Opt(IDL.Text),
   });
   
   return IDL.Service({
-    'addPlayer' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Bool], [Player], []),
-    'createGame' : IDL.Func([IDL.Nat], [Game], []),
-    'createRoom' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [Room], []),
+    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addPlayer' : IDL.Func(
+        [
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Text,
+          IDL.Opt(IDL.Text),
+          IDL.Bool,
+          IDL.Opt(AdminToken),
+        ],
+        [Player],
+        [],
+      ),
+    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'createGame' : IDL.Func([IDL.Nat, IDL.Opt(AdminToken)], [Game], []),
+    'createRoomV2' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Bool],
+        [IDL.Record({ 'admin_token' : IDL.Opt(IDL.Text), 'room' : Room })],
+        [],
+      ),
     'createShotEvent' : IDL.Func(
-        [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+        [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Opt(AdminToken)],
         [ShotEvent],
         [],
       ),
     'createTurn' : IDL.Func(
-        [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text, AdminToken],
+        [IDL.Nat, IDL.Nat, IDL.Nat, IDL.Opt(AdminToken)],
         [Turn],
         [],
       ),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getGame' : IDL.Func([IDL.Nat], [IDL.Opt(Game)], ['query']),
     'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
+    'getGoogleOAuthConfig' : IDL.Func([], [GoogleOAuthConfig], ['query']),
+    'getHealthStatus' : IDL.Func([], [HealthStatus], ['query']),
+    'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getMyStats' : IDL.Func([], [IDL.Opt(UserStats)], ['query']),
+    'getPlayerGameStatsByGame' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(PlayerGameStats)],
+        ['query'],
+      ),
+    'getPlayerGameStatsByUser' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(PlayerGameStats)],
+        ['query'],
+      ),
+    'getPlayersByGame' : IDL.Func([IDL.Nat], [IDL.Vec(Player)], ['query']),
     'getRoomByCode' : IDL.Func([IDL.Text], [IDL.Opt(Room)], ['query']),
     'getShotEventsByTurn' : IDL.Func(
         [IDL.Nat],
@@ -161,9 +433,41 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(Turn)],
         ['query'],
       ),
+    'getTurnsByGamePaginated' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Nat],
+        [IDL.Vec(Turn)],
+        ['query'],
+      ),
+    'getUserGamesParticipated' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Opt(IDL.Text),
+          IDL.Opt(IDL.Nat),
+          IDL.Opt(IDL.Nat),
+        ],
+        [IDL.Vec(GameWithStatistics)],
+        ['query'],
+      ),
+    'getUserProfile' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
+    'getUserStats' : IDL.Func([IDL.Text], [IDL.Opt(UserStats)], ['query']),
     'health' : IDL.Func([], [IDL.Text], ['query']),
+    'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'register' : IDL.Func([IDL.Text, IDL.Text], [User], []),
+    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'setGameWinner' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Opt(AdminToken)], [], []),
     'updateGameStatus' : IDL.Func(
-        [IDL.Nat, GameStatus, IDL.Text, AdminToken],
+        [IDL.Nat, GameStatus, IDL.Opt(AdminToken)],
+        [],
+        [],
+      ),
+    'updatePlayerRemaining' : IDL.Func(
+        [IDL.Nat, IDL.Int, IDL.Opt(AdminToken)],
         [],
         [],
       ),

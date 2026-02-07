@@ -13,11 +13,13 @@ import { saveGameSettings, sanitizePlayerNames } from '../lib/gameSettings';
 import { createRoom, getRoomByCode } from '../lib/roomsApi';
 import { setAdminToken } from '../lib/adminTokenStorage';
 import { useActor } from '../hooks/useActor';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import RoomCodeDisplay from '../components/rooms/RoomCodeDisplay';
 
 export default function StartGamePage() {
   const navigate = useNavigate();
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
   const [mode, setMode] = useState<301 | 501>(501);
   const [doubleOut, setDoubleOut] = useState(false);
   const [players, setPlayers] = useState(['', '']);
@@ -26,11 +28,14 @@ export default function StartGamePage() {
   const [multiDeviceMode, setMultiDeviceMode] = useState<'none' | 'create' | 'join'>('none');
   const [roomCode, setRoomCode] = useState('');
   const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
+  const [createdWithAccount, setCreatedWithAccount] = useState(false);
   const [joinRoomCode, setJoinRoomCode] = useState('');
   const [joinAdminToken, setJoinAdminToken] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
 
   const handleAddPlayer = () => {
     if (players.length < 4) {
@@ -60,15 +65,18 @@ export default function StartGamePage() {
     navigate({ to: '/game', search: {} });
   };
 
-  const handleCreateRoom = async () => {
+  const handleCreateRoom = async (withAccount: boolean) => {
     setIsCreatingRoom(true);
     setError(null);
     try {
-      const result = await createRoom(actor);
-      if (result.ok && result.code && result.adminToken) {
-        // Store the admin token locally
-        setAdminToken(result.code, result.adminToken);
+      const result = await createRoom(actor, withAccount);
+      if (result.ok && result.code) {
+        // Store the admin token only if one was returned (no-account mode)
+        if (result.adminToken) {
+          setAdminToken(result.code, result.adminToken);
+        }
         setCreatedRoomCode(result.code);
+        setCreatedWithAccount(withAccount);
         setMultiDeviceMode('create');
       } else {
         setError(result.message || 'Failed to create room');
@@ -123,6 +131,7 @@ export default function StartGamePage() {
   const handleBackToStart = () => {
     setMultiDeviceMode('none');
     setCreatedRoomCode(null);
+    setCreatedWithAccount(false);
     setRoomCode('');
     setJoinRoomCode('');
     setJoinAdminToken('');
@@ -142,12 +151,21 @@ export default function StartGamePage() {
 
         <RoomCodeDisplay code={createdRoomCode} />
 
-        <Alert>
-          <Lock className="h-4 w-4" />
-          <AlertDescription>
-            Your scorer token has been saved on this device. You can use Host / Scorer to manage the game.
-          </AlertDescription>
-        </Alert>
+        {createdWithAccount ? (
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              You are the room owner. You can manage the game without a scorer token.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              Your scorer token has been saved on this device. You can use Host / Scorer to manage the game.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="space-y-4">
           <Card>
@@ -275,25 +293,47 @@ export default function StartGamePage() {
               </Alert>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button
-                onClick={handleCreateRoom}
-                disabled={isCreatingRoom}
-                variant="outline"
-                className="h-20 text-base"
-                size="lg"
-              >
-                {isCreatingRoom ? (
-                  'Creating...'
-                ) : (
-                  <>
-                    <Users className="h-5 w-5 mr-2" />
-                    Create Room
-                  </>
-                )}
-              </Button>
+            <div className="space-y-4">
+              {/* Create Room Options */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Create Room</Label>
+                <div className="grid grid-cols-1 gap-3">
+                  {isAuthenticated && (
+                    <Button
+                      onClick={() => handleCreateRoom(true)}
+                      disabled={isCreatingRoom}
+                      variant="default"
+                      className="h-16 text-base justify-start"
+                      size="lg"
+                    >
+                      <Users className="h-5 w-5 mr-3" />
+                      <div className="text-left">
+                        <div className="font-semibold">Create with Account</div>
+                        <div className="text-xs opacity-80">You'll be the room owner</div>
+                      </div>
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => handleCreateRoom(false)}
+                    disabled={isCreatingRoom}
+                    variant="outline"
+                    className="h-16 text-base justify-start"
+                    size="lg"
+                  >
+                    <Lock className="h-5 w-5 mr-3" />
+                    <div className="text-left">
+                      <div className="font-semibold">Create without Account</div>
+                      <div className="text-xs opacity-80">Get a scorer token instead</div>
+                    </div>
+                  </Button>
+                </div>
+              </div>
 
-              <div className="space-y-2">
+              <Separator />
+
+              {/* Join Room */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Join Existing Room</Label>
                 <Input
                   type="text"
                   placeholder="Enter room code"
@@ -307,13 +347,13 @@ export default function StartGamePage() {
                   placeholder="Scorer token (optional)"
                   value={joinAdminToken}
                   onChange={(e) => setJoinAdminToken(e.target.value)}
-                  className="h-12 text-sm"
+                  className="h-12 text-sm font-mono"
                 />
                 <Button
                   onClick={handleJoinRoom}
                   disabled={isJoiningRoom || !joinRoomCode.trim()}
-                  variant="outline"
                   className="w-full h-12"
+                  size="lg"
                 >
                   {isJoiningRoom ? 'Joining...' : 'Join Room'}
                 </Button>
@@ -322,125 +362,100 @@ export default function StartGamePage() {
           </CardContent>
         </Card>
 
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <Separator />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or play locally
-            </span>
-          </div>
-        </div>
+        <Separator />
 
-        {/* Game Mode Selection */}
-        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-          <Label className="text-lg font-semibold">Game Mode</Label>
-          <RadioGroup
-            value={mode.toString()}
-            onValueChange={(value) => setMode(Number(value) as 301 | 501)}
-            className="grid grid-cols-2 gap-4"
-          >
-            <div>
-              <RadioGroupItem
-                value="301"
-                id="mode-301"
-                className="peer sr-only"
-              />
-              <Label
-                htmlFor="mode-301"
-                className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all"
+        {/* Local Game Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Local Game</CardTitle>
+            <CardDescription>
+              Play on this device only
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Game Mode */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Game Mode</Label>
+              <RadioGroup
+                value={mode.toString()}
+                onValueChange={(value) => setMode(parseInt(value) as 301 | 501)}
               >
-                <span className="text-3xl font-bold mb-2">301</span>
-                <span className="text-sm text-muted-foreground">Quick Game</span>
-              </Label>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="301" id="mode-301" />
+                  <Label htmlFor="mode-301" className="cursor-pointer">301</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="501" id="mode-501" />
+                  <Label htmlFor="mode-501" className="cursor-pointer">501</Label>
+                </div>
+              </RadioGroup>
             </div>
-            <div>
-              <RadioGroupItem
-                value="501"
-                id="mode-501"
-                className="peer sr-only"
-              />
-              <Label
-                htmlFor="mode-501"
-                className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all"
-              >
-                <span className="text-3xl font-bold mb-2">501</span>
-                <span className="text-sm text-muted-foreground">Standard Game</span>
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
 
-        {/* Double Out Toggle */}
-        <div className="rounded-lg border border-border bg-card p-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label htmlFor="double-out" className="text-lg font-semibold">
+            {/* Double Out */}
+            <div className="flex items-center justify-between">
+              <Label htmlFor="double-out" className="text-base font-semibold">
                 Double Out
               </Label>
-              <p className="text-sm text-muted-foreground">
-                Require a double to finish the game
-              </p>
+              <Switch
+                id="double-out"
+                checked={doubleOut}
+                onCheckedChange={setDoubleOut}
+              />
             </div>
-            <Switch
-              id="double-out"
-              checked={doubleOut}
-              onCheckedChange={setDoubleOut}
-            />
-          </div>
-        </div>
 
-        {/* Players */}
-        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <Label className="text-lg font-semibold">Players</Label>
-            <Button
-              onClick={handleAddPlayer}
-              disabled={players.length >= 4}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add Player
-            </Button>
-          </div>
+            <Separator />
 
-          <div className="space-y-3">
-            {players.map((player, index) => (
-              <div key={index} className="flex gap-3">
-                <Input
-                  type="text"
-                  placeholder={`Player ${index + 1} name`}
-                  value={player}
-                  onChange={(e) => handlePlayerNameChange(index, e.target.value)}
-                  className="h-12 text-base"
-                />
-                {players.length > 1 && (
-                  <Button
-                    onClick={() => handleRemovePlayer(index)}
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
+            {/* Players */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Players</Label>
+                <Button
+                  onClick={handleAddPlayer}
+                  disabled={players.length >= 4}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Add Player
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Start Game Button */}
-        <Button
-          onClick={handleStartGame}
-          size="lg"
-          className="w-full h-14 text-lg gap-3"
-        >
-          <Play className="h-5 w-5" />
-          Start Game
-        </Button>
+              <div className="space-y-2">
+                {players.map((player, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder={`Player ${index + 1}`}
+                      value={player}
+                      onChange={(e) => handlePlayerNameChange(index, e.target.value)}
+                      className="h-12"
+                    />
+                    {players.length > 1 && (
+                      <Button
+                        onClick={() => handleRemovePlayer(index)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-12 w-12 shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              onClick={handleStartGame}
+              className="w-full h-14 text-lg gap-2"
+              size="lg"
+            >
+              <Play className="h-5 w-5" />
+              Start Game
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

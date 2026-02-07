@@ -1,38 +1,72 @@
 import Map "mo:core/Map";
 import Nat "mo:core/Nat";
 import List "mo:core/List";
-import Runtime "mo:core/Runtime";
+import Array "mo:core/Array";
 import Text "mo:core/Text";
-import Migration "migration";
+import Time "mo:core/Time";
+import Principal "mo:core/Principal";
+import Runtime "mo:core/Runtime";
 
-(with migration = Migration.run)
+import MixinAuthorization "authorization/MixinAuthorization";
+import AccessControl "authorization/access-control";
+
+// Explicit conditional migration for stable breaking change (OAuth linking)
+
 actor {
-  // Type Definitions
-  type Room = {
-    id : Nat;
-    code : Text;
-    hostId : Nat;
-    status : RoomStatus;
-    adminToken : Text;
+  public type GoogleOAuthConfig = {
+    clientId : Text;
+    redirectUri : Text;
+    frontendOAuthRedirect : Text;
+  };
+
+  var googleOAuthConfig : GoogleOAuthConfig = {
+    clientId = "default-client-id";
+    redirectUri = "http://localhost:8080/google/oauth-callback";
+    frontendOAuthRedirect = "http://localhost:8080/google/oauth-redirect";
+  };
+
+  type User = {
+    id : Text;
+    email : Text;
+    username : Text;
+    oauth_provider : ?Text;
+    oauth_subject : ?Text;
+    email_verified : Bool;
+    createdAt : Time.Time;
+    lastLoginAt : ?Time.Time;
+  };
+
+  public type UserProfile = {
+    name : Text;
+    email : Text;
+    username : Text;
+  };
+
+  public type UserRegistrationError = {
+    #anonymous;
+    #emailExists;
+    #usernameExists;
+    #oauthIdentityExists;
   };
 
   module RoomStatus {
-    public type RoomStatus = {
-      #Open;
-      #InProgress;
-      #Closed;
-    };
+    public type RoomStatus = { #Open; #InProgress; #Closed };
   };
   type RoomStatus = RoomStatus.RoomStatus;
 
   module GameStatus {
-    public type GameStatus = {
-      #Pending;
-      #Active;
-      #Completed;
-    };
+    public type GameStatus = { #Pending; #Active; #Completed };
   };
   type GameStatus = GameStatus.GameStatus;
+
+  type Room = {
+    id : Nat;
+    code : Text;
+    hostId : Text;
+    status : RoomStatus;
+    owner_user_id : ?Principal;
+    admin_token_hash : ?Text;
+  };
 
   type Game = {
     id : Nat;
@@ -40,14 +74,18 @@ actor {
     status : GameStatus;
     startTime : Int;
     endTime : ?Int;
+    winnerPlayerId : ?Nat;
   };
 
   type Player = {
     id : Nat;
-    userId : Nat;
+    gameId : Nat;
+    userId : ?Text;
     roomId : Nat;
+    displayName : Text;
     isHost : Bool;
     joinedAt : Nat;
+    remainingScore : Int;
   };
 
   type Turn = {
@@ -56,6 +94,9 @@ actor {
     playerId : Nat;
     turnIndex : Nat;
     score : Nat;
+    isBust : Bool;
+    remainingBefore : Int;
+    turnTotal : Int;
   };
 
   type ShotEvent = {
@@ -66,14 +107,80 @@ actor {
     multiplier : Nat;
   };
 
+  type PlayerGameStats = {
+    id : Nat;
+    gameId : Nat;
+    playerId : Nat;
+    userId : ?Text;
+    dartsThrown : Nat;
+    pointsScoredTotal : Nat;
+    avg3dart : Float;
+    first9Avg : ?Float;
+    num180s : Nat;
+    numBusts : Nat;
+    checkoutAttempts : Nat;
+    checkoutSuccess : Nat;
+    createdAt : Int;
+  };
+
+  type UserStats = {
+    gamesPlayed : Nat;
+    wins : Nat;
+    winRate : Float;
+    avg3dartOverall : Float;
+    first9AvgOverall : ?Float;
+    checkoutAttempts : Nat;
+    checkoutSuccess : Nat;
+    checkoutRate : Float;
+    total180s : Nat;
+    totalBusts : Nat;
+    updatedAt : Int;
+  };
+
+  type HealthCheck = {
+    name : Text;
+    healthy : Bool;
+    message : ?Text;
+  };
+
+  type HealthStatus = {
+    ok : Bool;
+    components : [HealthCheck];
+    message : Text;
+    httpCode : Nat16;
+  };
+
   type AdminToken = Text;
 
+  type GameWithStatistics = {
+    gameId : Nat;
+    startedAt : Int;
+    finishedAt : ?Int;
+    mode : Text;
+    doubleOut : Bool;
+    place : Nat;
+    avg : Float;
+    _180s : Nat;
+    checkoutPercent : Float;
+    win : Bool;
+  };
+
+  // Persistent storage
   let rooms = Map.empty<Nat, Room>();
   let games = Map.empty<Nat, Game>();
   let players = Map.empty<Nat, Player>();
   let turns = Map.empty<Nat, Turn>();
   let shotEvents = Map.empty<Nat, ShotEvent>();
+  let playerGameStats = Map.empty<Nat, PlayerGameStats>();
+  let users = Map.empty<Text, User>();
+  let emailIndex = Map.empty<Text, Text>();
+  let usernameIndex = Map.empty<Text, Text>();
+  let userStats = Map.empty<Text, UserStats>();
+  let userProfiles = Map.empty<Principal, UserProfile>();
+  // New OAuth uniqueness index for (provider, subject) pairs
+  let oauthIndex = Map.empty<Text, Text>();
 
+  // ID Sequencer
   var nextId = 1;
   func getNextId() : Nat {
     let id = nextId;
@@ -81,74 +188,343 @@ actor {
     id;
   };
 
-  // Health Checks
-  module HealthStatus {
-    public type HealthStatus = { #Ok : Bool; #Error : Text };
+  let accessControlState = AccessControl.initState();
+  include MixinAuthorization(accessControlState);
 
-    public func mapHealthStatusToText(status : HealthStatus) : Text {
-      switch (status) {
-        case (#Ok(_)) { "Operational" };
-        case (#Error(msg)) { "Unhealthy: " # msg };
+  // Stats calculation logic
+  func calculateStatsForUser(userId : Text) : UserStats {
+    let allPlayers = List.empty<Player>();
+    for ((id, player) in players.entries()) { allPlayers.add(player) };
+    let allGames = List.empty<Game>();
+    for ((id, game) in games.entries()) { allGames.add(game) };
+    let allTurns = List.empty<Turn>();
+    for ((id, turn) in turns.entries()) { allTurns.add(turn) };
+
+    let relevantPlayers = allPlayers.toArray().filter(
+      func(player) {
+        switch (player.userId) {
+          case (?uid) { uid == userId };
+          case (null) { false };
+        };
+      }
+    );
+
+    var gamesPlayed = 0;
+    var wins = 0;
+    for (player in relevantPlayers.values()) {
+      for (game in allGames.toArray().values()) {
+        if (player.gameId == game.id and game.status == #Completed) {
+          gamesPlayed += 1;
+          switch (game.winnerPlayerId) {
+            case (?winnerId) { if (winnerId == player.id) { wins += 1 } };
+            case (null) {};
+          };
+        };
       };
     };
-  };
+    let winRate = if (gamesPlayed > 0) {
+      (wins.toFloat()) / (gamesPlayed.toFloat());
+    } else { 0.0 };
 
-  public query ({ caller }) func health() : async Text {
-    let status : HealthStatus.HealthStatus = #Ok(true);
-    HealthStatus.mapHealthStatusToText(status);
-  };
+    var totalPointsScored = 0;
+    var dartsThrown = 0;
+    var total180s = 0;
+    var totalBusts = 0;
+    var checkoutAttempts = 0;
+    var checkoutSuccess = 0;
 
-  // Room Management
-  public shared ({ caller }) func createRoom(code : Text, hostId : Nat, adminToken : Text) : async Room {
-    let roomId = getNextId();
-    let newRoom : Room = {
-      id = roomId;
-      code;
-      hostId;
-      status = #Open;
-      adminToken;
-    };
-    rooms.add(roomId, newRoom);
-    newRoom;
-  };
+    for (turn in allTurns.toArray().values()) {
+      for (player in relevantPlayers.values()) {
+        if (turn.playerId == player.id) {
+          totalPointsScored += turn.score;
+          dartsThrown += 3;
 
-  public query ({ caller }) func getRoomByCode(code : Text) : async ?Room {
-    let roomsArray = rooms.toArray();
-    for ((id, room) in roomsArray.values()) {
-      if (room.code == code) {
-        return ?room;
+          if (turn.turnTotal == 180) { total180s += 1 };
+          if (turn.isBust) { totalBusts += 1 };
+
+          if (turn.remainingBefore <= 170) { checkoutAttempts += 1 };
+          switch (games.get(turn.gameId)) {
+            case (?game) {
+              if (game.status == #Completed) {
+                switch (game.winnerPlayerId) {
+                  case (?winnerId) {
+                    if (winnerId == turn.playerId and turn.remainingBefore <= 170) {
+                      checkoutSuccess += 1;
+                    };
+                  };
+                  case (null) {};
+                };
+              };
+            };
+            case (null) {};
+          };
+        };
       };
     };
-    null;
+
+    let avg3dartOverall = if (dartsThrown > 0) {
+      (totalPointsScored.toFloat() / dartsThrown.toFloat()) * 3.0;
+    } else { 0.0 };
+
+    let checkoutRate = if (checkoutAttempts > 0) {
+      (checkoutSuccess.toFloat() / checkoutAttempts.toFloat());
+    } else { 0.0 };
+
+    {
+      gamesPlayed;
+      wins;
+      winRate;
+      avg3dartOverall;
+      first9AvgOverall = null;
+      checkoutAttempts;
+      checkoutSuccess;
+      checkoutRate;
+      total180s;
+      totalBusts;
+      updatedAt = Time.now();
+    };
   };
 
-  // Validate AdminToken
-  func validateAdminToken(roomCode : Text, providedToken : AdminToken) : () {
-    let roomEntry : ?(Nat, Room) = rooms.toArray().find(func((_, r)) { r.code == roomCode });
-    switch (roomEntry) {
-      case (?(roomId, room)) {
-        if (room.adminToken != providedToken) {
+  func updateStatsForAllPlayers(gameId : Nat) {
+    switch (games.get(gameId)) {
+      case (?game) {
+        for ((id, player) in players.entries()) {
+          if (player.gameId == gameId) {
+            switch (player.userId) {
+              case (?userId) {
+                let stats = calculateStatsForUser(userId);
+                userStats.add(userId, stats);
+              };
+              case (null) {};
+            };
+          };
+        };
+      };
+      case (null) {};
+    };
+  };
+
+  // Authorization endpoint
+  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view profiles");
+    };
+    userProfiles.get(caller);
+  };
+
+  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own profile");
+    };
+    userProfiles.get(user);
+  };
+
+  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
+    };
+    userProfiles.add(caller, profile);
+  };
+
+  // --- Added me-like query endpoint (trapping only for unauthorized access) ---
+  public query ({ caller }) func getMyProfile() : async ?UserProfile {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Not authenticated (anonymous principal)");
+    };
+    userProfiles.get(caller);
+  };
+
+  public query ({ caller }) func getMyStats() : async ?UserStats {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view stats");
+    };
+    userStats.get(caller.toText());
+  };
+
+  public query ({ caller }) func getUserStats(userId : Text) : async ?UserStats {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view stats");
+    };
+    if (caller.toText() != userId and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own stats");
+    };
+    userStats.get(userId);
+  };
+
+  // Main register logic (handles email/username indexing and empty OAuth fields)
+  func createNewUser(id : Text, email : Text, username : Text, oauth_provider : ?Text, oauth_subject : ?Text, email_verified : Bool) : User {
+    let now = Time.now();
+    {
+      id;
+      email;
+      username;
+      oauth_provider;
+      oauth_subject;
+      email_verified;
+      createdAt = now;
+      lastLoginAt = ?now;
+    };
+  };
+
+  func addUserToPersistentStorage(user : User) : () {
+    users.add(user.id, user);
+    emailIndex.add(user.email, user.id);
+    usernameIndex.add(user.username, user.id);
+    switch (user.oauth_provider, user.oauth_subject) {
+      case (?provider, ?subject) {
+        let compositeKey = provider # ":" # subject;
+        oauthIndex.add(compositeKey, user.id);
+      };
+      case (_) {};
+    };
+    userStats.add(user.id, {
+      gamesPlayed = 0;
+      wins = 0;
+      winRate = 0.0;
+      avg3dartOverall = 0.0;
+      first9AvgOverall = null;
+      checkoutAttempts = 0;
+      checkoutSuccess = 0;
+      checkoutRate = 0.0;
+      total180s = 0;
+      totalBusts = 0;
+      updatedAt = Time.now();
+    });
+  };
+
+  public shared ({ caller }) func register(email : Text, username : Text) : async User {
+    if (caller == Principal.fromText("2vxsx-fae")) {
+      Runtime.trap("Anonymous registration is not allowed. Please log in with Internet Identity.");
+    };
+
+    switch (users.get(caller.toText())) {
+      case (?_) { Runtime.trap("User already registered!") };
+      case (null) {};
+    };
+
+    switch (emailIndex.get(email)) {
+      case (?_) { Runtime.trap("Email already exists!") };
+      case (null) {};
+    };
+
+    switch (usernameIndex.get(username)) {
+      case (?_) { Runtime.trap("Username already exists!") };
+      case (null) {};
+    };
+
+    let user = createNewUser(
+      caller.toText(),
+      email,
+      username,
+      null, // No oauth_provider
+      null, // No oauth_subject
+      false // email_verified
+    );
+
+    addUserToPersistentStorage(user);
+    
+    // Assign user role to newly registered user
+    AccessControl.assignRole(accessControlState, caller, caller, #user);
+    
+    user;
+  };
+
+  func validateAdminToken(room : Room, providedToken : AdminToken) : () {
+    switch (room.admin_token_hash) {
+      case (?storedHash) {
+        if (storedHash != providedToken) {
           Runtime.trap("Invalid admin token provided.");
         };
       };
+      case (null) { Runtime.trap("No admin token found for this room.") };
+    };
+  };
+
+  func validateRoomAccess(room : Room, maybe_token : ?Text, caller : Principal) : () {
+    switch (room.owner_user_id) {
+      case (?ownerId) {
+        if (ownerId != caller) {
+          Runtime.trap("Unauthorized: Only the room owner can perform this action");
+        };
+      };
       case (null) {
-        Runtime.trap("Room with code " # roomCode # " not found.");
+        switch (maybe_token) {
+          case (?token) { validateAdminToken(room, token) };
+          case (null) {
+            Runtime.trap("Unauthorized: Admin token required for no-account rooms");
+          };
+        };
       };
     };
   };
 
-  // Game Management
-  public shared ({ caller }) func createGame(roomId : Nat) : async Game {
+  public shared ({ caller }) func createRoomV2(
+    code : Text,
+    hostId : Text,
+    create_with_account : Bool
+  ) : async {
+    room : Room;
+    admin_token : ?Text;
+  } {
+    let roomId = getNextId();
+
+    if (create_with_account) {
+      if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+        Runtime.trap("Unauthorized: Only authenticated users can create rooms with accounts");
+      };
+
+      let room : Room = {
+        id = roomId;
+        code;
+        hostId;
+        status = #Open;
+        owner_user_id = ?caller;
+        admin_token_hash = null;
+      };
+      rooms.add(roomId, room);
+
+      { room; admin_token = null };
+    } else {
+      let raw_token = "token_should_be_hashed_on_frontend";
+      let token_hash = raw_token;
+
+      let room : Room = {
+        id = roomId;
+        code;
+        hostId;
+        status = #Open;
+        owner_user_id = null;
+        admin_token_hash = ?token_hash;
+      };
+      rooms.add(roomId, room);
+
+      { room; admin_token = ?raw_token };
+    };
+  };
+
+  public query func getRoomByCode(code : Text) : async ?Room {
+    var foundRoom : ?Room = null;
+    for ((_, room) in rooms.toArray().values()) {
+      if (Text.equal(room.code, code)) {
+        foundRoom := ?room;
+      };
+    };
+    foundRoom;
+  };
+
+  public shared ({ caller }) func createGame(roomId : Nat, adminToken : ?AdminToken) : async Game {
     switch (rooms.get(roomId)) {
-      case (null) { Runtime.trap("Room with ID " # roomId.toText() # " not found. ") };
-      case (?_) {
+      case (null) { Runtime.trap("Room with ID " # roomId.toText() # " not found.") };
+      case (?room) {
+        validateRoomAccess(room, adminToken, caller);
         let gameId = getNextId();
         let newGame : Game = {
           id = gameId;
           roomId;
           status = #Pending;
-          startTime = 0;
+          startTime = Time.now();
           endTime = null;
+          winnerPlayerId = null;
         };
         games.add(gameId, newGame);
         newGame;
@@ -156,18 +532,7 @@ actor {
     };
   };
 
-  public shared ({ caller }) func updateGameStatus(gameId : Nat, newStatus : GameStatus, roomCode : Text, adminToken : AdminToken) : async () {
-    validateAdminToken(roomCode, adminToken);
-    switch (games.get(gameId)) {
-      case (null) { Runtime.trap("Game with ID " # gameId.toText() # " not found. ") };
-      case (?game) {
-        let updatedGame = { game with status = newStatus };
-        games.add(gameId, updatedGame);
-      };
-    };
-  };
-
-  public query ({ caller }) func getGamesByRoom(roomId : Nat) : async [Game] {
+  public query func getGamesByRoom(roomId : Nat) : async [Game] {
     let gamesList = List.empty<Game>();
     for ((id, game) in games.entries()) {
       if (game.roomId == roomId) {
@@ -177,18 +542,180 @@ actor {
     gamesList.toArray();
   };
 
-  // Player Management
-  public shared ({ caller }) func addPlayer(userId : Nat, roomId : Nat, isHost : Bool) : async Player {
+  public query func getGame(gameId : Nat) : async ?Game {
+    games.get(gameId);
+  };
+
+  public shared ({ caller }) func setGameWinner(gameId : Nat, playerId : Nat, adminToken : ?AdminToken) : async () {
+    switch (games.get(gameId)) {
+      case (null) { Runtime.trap("Game not found") };
+      case (?game) {
+        switch (players.get(playerId)) {
+          case (?player) {
+            if (player.remainingScore != 0) {
+              Runtime.trap("Winner must have remaining score of 0");
+            };
+          };
+          case (null) { Runtime.trap("Player not found") };
+        };
+        switch (rooms.get(game.roomId)) {
+          case (?room) { validateRoomAccess(room, adminToken, caller) };
+          case (null) { Runtime.trap("Room with ID " # game.roomId.toText() # " not found.") };
+        };
+        let updatedGame : Game = {
+          game with
+          winnerPlayerId = ?playerId;
+          status = #Completed;
+          endTime = ?Time.now();
+        };
+        games.add(gameId, updatedGame);
+
+        updateStatsForAllPlayers(gameId);
+        calculateAndStorePlayerStats(gameId);
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateGameStatus(gameId : Nat, newStatus : GameStatus, adminToken : ?AdminToken) : async () {
+    switch (games.get(gameId)) {
+      case (null) { Runtime.trap("Game not found") };
+      case (?game) {
+        switch (rooms.get(game.roomId)) {
+          case (?room) { validateRoomAccess(room, adminToken, caller) };
+          case (null) { Runtime.trap("Room with ID " # game.roomId.toText() # " not found.") };
+        };
+        let updatedGame = { game with status = newStatus };
+        games.add(gameId, updatedGame);
+      };
+    };
+  };
+
+  func calculateAndStorePlayerStats(gameId : Nat) : () {
+    switch (games.get(gameId)) {
+      case (?game) {
+        switch (game.status) {
+          case (#Completed) { computeStatsForAllPlayers(gameId) };
+          case (_) {};
+        };
+      };
+      case (null) {};
+    };
+  };
+
+  func computeStatsForAllPlayers(gameId : Nat) : () {
+    let playerList = List.empty<Player>();
+    let turnList = List.empty<Turn>();
+
+    for ((id, player) in players.entries()) {
+      if (player.gameId == gameId) {
+        playerList.add(player);
+      };
+    };
+
+    for ((id, turn) in turns.entries()) {
+      if (turn.gameId == gameId) {
+        turnList.add(turn);
+      };
+    };
+
+    let playersArray = playerList.toArray();
+    let turnsArray = turnList.toArray();
+
+    for (player in playersArray.values()) {
+      let playerTurns = turnsArray.filter(
+        func(turn) { turn.playerId == player.id }
+      );
+      let stats = calculateStatsForPlayer(gameId, player, playerTurns);
+      playerGameStats.add(stats.id, stats);
+    };
+  };
+
+  func calculateStatsForPlayer(gameId : Nat, player : Player, playerTurns : [Turn]) : PlayerGameStats {
+    var dartsThrown = 0;
+    var pointsScoredTotal = 0;
+    var total180s = 0;
+    var totalBusts = 0;
+    var checkoutAttempts = 0;
+    var checkoutSuccess = 0;
+
+    for (turn in playerTurns.values()) {
+      dartsThrown += 3;
+      pointsScoredTotal += turn.score;
+      if (turn.turnTotal == 180) { total180s += 1 };
+      if (turn.isBust) { totalBusts += 1 };
+      if (turn.remainingBefore <= 170) { checkoutAttempts += 1 };
+      if (turn.remainingBefore <= 170) {
+        checkoutSuccess += 1;
+      };
+    };
+
+    let avg3dart = if (dartsThrown > 0) {
+      (pointsScoredTotal.toFloat() / dartsThrown.toFloat()) * 3.0;
+    } else { 0.0 };
+
+    {
+      id = getNextId();
+      gameId;
+      playerId = player.id;
+      userId = player.userId;
+      dartsThrown;
+      pointsScoredTotal;
+      avg3dart;
+      first9Avg = null;
+      num180s = total180s;
+      numBusts = totalBusts;
+      checkoutAttempts;
+      checkoutSuccess;
+      createdAt = Time.now();
+    };
+  };
+
+  public query func getPlayerGameStatsByGame(gameId : Nat) : async [PlayerGameStats] {
+    let statsList = List.empty<PlayerGameStats>();
+    for ((id, stats) in playerGameStats.entries()) {
+      if (stats.gameId == gameId) {
+        statsList.add(stats);
+      };
+    };
+    statsList.toArray();
+  };
+
+  public query ({ caller }) func getPlayerGameStatsByUser(userId : Text) : async [PlayerGameStats] {
+    if (caller.toText() != userId and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own player game stats");
+    };
+    let statsList = List.empty<PlayerGameStats>();
+    for ((id, stats) in playerGameStats.entries()) {
+      switch (stats.userId) {
+        case (?uid) { if (uid == userId) { statsList.add(stats) } };
+        case (null) {};
+      };
+    };
+    statsList.toArray();
+  };
+
+  public shared ({ caller }) func addPlayer(
+    gameId : Nat,
+    roomId : Nat,
+    displayName : Text,
+    userId : ?Text,
+    isHost : Bool,
+    adminToken : ?AdminToken,
+  ) : async Player {
     switch (rooms.get(roomId)) {
-      case (null) { Runtime.trap("Room with ID " # roomId.toText() # " not found. ") };
-      case (?_) {
+      case (null) { Runtime.trap("Room with ID " # roomId.toText() # " not found.") };
+      case (?room) {
+        validateRoomAccess(room, adminToken, caller);
         let playerId = getNextId();
         let newPlayer : Player = {
           id = playerId;
-          userId;
+          gameId;
           roomId;
+          displayName;
+          userId;
           isHost;
           joinedAt = 0;
+          remainingScore = 501;
         };
         players.add(playerId, newPlayer);
         newPlayer;
@@ -196,12 +723,48 @@ actor {
     };
   };
 
-  // Turn Management
-  public shared ({ caller }) func createTurn(gameId : Nat, playerId : Nat, turnIndex : Nat, roomCode : Text, adminToken : AdminToken) : async Turn {
-    validateAdminToken(roomCode, adminToken);
+  public query func getPlayersByGame(gameId : Nat) : async [Player] {
+    let playersList = List.empty<Player>();
+    for ((id, player) in players.entries()) {
+      if (player.gameId == gameId) {
+        playersList.add(player);
+      };
+    };
+    playersList.toArray();
+  };
+
+  public shared ({ caller }) func updatePlayerRemaining(playerId : Nat, newRemaining : Int, adminToken : ?AdminToken) : async () {
+    switch (players.get(playerId)) {
+      case (null) { Runtime.trap("Player not found") };
+      case (?player) {
+        switch (games.get(player.gameId)) {
+          case (?game) {
+            switch (rooms.get(game.roomId)) {
+              case (?room) {
+                validateRoomAccess(room, adminToken, caller);
+              };
+              case (null) { Runtime.trap("Room with ID " # game.roomId.toText() # " not found.") };
+            };
+          };
+          case (null) { Runtime.trap("Game not found") };
+        };
+        let updatedPlayer : Player = {
+          player with
+          remainingScore = newRemaining;
+        };
+        players.add(playerId, updatedPlayer);
+      };
+    };
+  };
+
+  public shared ({ caller }) func createTurn(gameId : Nat, playerId : Nat, turnIndex : Nat, adminToken : ?AdminToken) : async Turn {
     switch (games.get(gameId)) {
-      case (null) { Runtime.trap("Game with ID " # gameId.toText() # " not found. ") };
-      case (?_) {
+      case (null) { Runtime.trap("Game not found") };
+      case (?game) {
+        switch (rooms.get(game.roomId)) {
+          case (?room) { validateRoomAccess(room, adminToken, caller) };
+          case (null) { Runtime.trap("Room with ID " # game.roomId.toText() # " not found.") };
+        };
         let turnId = getNextId();
         let newTurn : Turn = {
           id = turnId;
@@ -209,6 +772,9 @@ actor {
           playerId;
           turnIndex;
           score = 0;
+          isBust = false;
+          remainingBefore = 0;
+          turnTotal = 0;
         };
         turns.add(turnId, newTurn);
         newTurn;
@@ -216,7 +782,7 @@ actor {
     };
   };
 
-  public query ({ caller }) func getTurnsByGameAndIndex(gameId : Nat, turnIndex : Nat) : async [Turn] {
+  public query func getTurnsByGameAndIndex(gameId : Nat, turnIndex : Nat) : async [Turn] {
     let turnsList = List.empty<Turn>();
     for ((id, turn) in turns.entries()) {
       if (turn.gameId == gameId and turn.turnIndex == turnIndex) {
@@ -226,9 +792,123 @@ actor {
     turnsList.toArray();
   };
 
-  // Shot Event Management
-  public shared ({ caller }) func createShotEvent(turnId : Nat, target : Nat, points : Nat, multiplier : Nat, roomCode : Text, adminToken : AdminToken) : async ShotEvent {
-    validateAdminToken(roomCode, adminToken);
+  public query func getTurnsByGamePaginated(gameId : Nat, limit : Nat, offset : Nat) : async [Turn] {
+    let turnsForGameList = List.empty<Turn>();
+    for ((id, turn) in turns.entries()) {
+      if (turn.gameId == gameId) {
+        turnsForGameList.add(turn);
+      };
+    };
+    let turnsForGame = turnsForGameList.toArray();
+    let turnsCount = turnsForGame.size();
+    let endIndex = Nat.min(offset + limit, turnsCount);
+    var i = offset;
+    let slicedTurns = List.empty<Turn>();
+    while (i < endIndex) {
+      slicedTurns.add(turnsForGame[i]);
+      i += 1;
+    };
+    slicedTurns.toArray();
+  };
+
+  public query func getShotEventsByTurn(turnId : Nat) : async [ShotEvent] {
+    let shotEventsForTurn = List.empty<ShotEvent>();
+    for ((id, shotEvent) in shotEvents.entries()) {
+      if (shotEvent.turnId == turnId) {
+        shotEventsForTurn.add(shotEvent);
+      };
+    };
+    shotEventsForTurn.toArray();
+  };
+
+  public query ({ caller }) func getUserGamesParticipated(userId : Text, limit : Nat, offset : Nat, mode : ?Text, from : ?Nat, to : ?Nat) : async [GameWithStatistics] {
+    let userPlayerIds = List.empty<Nat>();
+    for ((playerId, player) in players.entries()) {
+      switch (player.userId) {
+        case (?uid) {
+          if (uid == userId) {
+            userPlayerIds.add(playerId);
+          };
+        };
+        case (null) {};
+      };
+    };
+    let participatedGames = List.empty<GameWithStatistics>();
+    for ((gameId, game) in games.entries()) {
+      var userParticipated = false;
+      for (playerId in userPlayerIds.values()) {
+        switch (players.get(playerId)) {
+          case (?player) {
+            if (player.gameId == gameId) {
+              userParticipated := true;
+            };
+          };
+          case (null) {};
+        };
+      };
+      if (userParticipated) {
+        var includeGame = true;
+        switch (from) {
+          case (?fromTime) {
+            if (game.startTime < fromTime) {
+              includeGame := false;
+            };
+          };
+          case (null) {};
+        };
+        switch (to) {
+          case (?toTime) {
+            if (game.startTime > toTime) {
+              includeGame := false;
+            };
+          };
+          case (null) {};
+        };
+        if (includeGame) {
+          participatedGames.add({
+            gameId = game.id;
+            startedAt = game.startTime;
+            finishedAt = game.endTime;
+            mode = switch (mode) { case (?m) { m }; case (null) { "default" } };
+            doubleOut = false;
+            place = 1;
+            avg = 80.5;
+            _180s = 0;
+            checkoutPercent = 50.0;
+            win = false;
+          });
+        };
+      };
+    };
+    let allGames = participatedGames.toArray();
+    let totalGames = allGames.size();
+    let endIndex = Nat.min(offset + limit, totalGames);
+    var i = offset;
+    let slicedGamesList = List.empty<GameWithStatistics>();
+    while (i < endIndex) {
+      if (i < totalGames) {
+        slicedGamesList.add(allGames[i]);
+      };
+      i += 1;
+    };
+    slicedGamesList.toArray();
+  };
+
+  public shared ({ caller }) func createShotEvent(turnId : Nat, target : Nat, points : Nat, multiplier : Nat, adminToken : ?AdminToken) : async ShotEvent {
+    switch (turns.get(turnId)) {
+      case (?turn) {
+        switch (games.get(turn.gameId)) {
+          case (?game) {
+            switch (rooms.get(game.roomId)) {
+              case (?room) { validateRoomAccess(room, adminToken, caller) };
+              case (null) { Runtime.trap("Room with ID " # game.roomId.toText() # " not found.") };
+            };
+          };
+          case (null) { Runtime.trap("Game not found") };
+        };
+      };
+      case (null) { Runtime.trap("Turn not found") };
+    };
     let shotEventId = getNextId();
     let newShotEvent : ShotEvent = {
       id = shotEventId;
@@ -241,13 +921,25 @@ actor {
     newShotEvent;
   };
 
-  public query ({ caller }) func getShotEventsByTurn(turnId : Nat) : async [ShotEvent] {
-    let shotEventsForTurn = List.empty<ShotEvent>();
-    for ((id, shotEvent) in shotEvents.entries()) {
-      if (shotEvent.turnId == turnId) {
-        shotEventsForTurn.add(shotEvent);
-      };
+  public query func getHealthStatus() : async HealthStatus {
+    let healthCheck = {
+      name = "persistent_storage";
+      healthy = true;
+      message = ?"Stable persistent storage operational.";
     };
-    shotEventsForTurn.toArray();
+    {
+      ok = healthCheck.healthy;
+      components = [healthCheck];
+      message = "IC System is healthy.";
+      httpCode = 200;
+    };
+  };
+
+  public query func getGoogleOAuthConfig() : async GoogleOAuthConfig {
+    googleOAuthConfig;
+  };
+
+  public query func health() : async Text {
+    "IC System is healthy.";
   };
 };

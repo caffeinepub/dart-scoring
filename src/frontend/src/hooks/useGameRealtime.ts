@@ -19,6 +19,7 @@ export interface UseGameRealtimeResult {
   isConnecting: boolean;
   isError: boolean;
   isFallback: boolean;
+  reconnect?: () => void;
 }
 
 /**
@@ -61,11 +62,19 @@ export function useGameRealtime(config: UseGameRealtimeConfig): UseGameRealtimeR
     };
   }, [gameId, enabled, onGameSnapshot]);
 
+  const reconnect = () => {
+    if (transportRef.current) {
+      transportRef.current.disconnect();
+      transportRef.current.connect();
+    }
+  };
+
   return {
     connectionState,
     isConnected: connectionState === 'connected',
     isConnecting: connectionState === 'connecting',
     isError: connectionState === 'error',
     isFallback: connectionState === 'fallback',
+    reconnect,
   };
 }

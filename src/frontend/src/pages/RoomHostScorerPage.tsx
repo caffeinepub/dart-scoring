@@ -6,16 +6,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import GameSettingsPanel from '../components/rooms/GameSettingsPanel';
+import GameSettingsPanel, { type PlayerAssignment } from '../components/rooms/GameSettingsPanel';
 import HostLiveScoringPanel from '../components/rooms/HostLiveScoringPanel';
 import { createGameForRoom } from '../lib/roomGameApi';
 import { getAdminToken, setAdminToken } from '../lib/adminTokenStorage';
 import { useActor } from '../hooks/useActor';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import type { GameSnapshot } from '../lib/realtimeEventEnvelope';
 
 export default function RoomHostScorerPage() {
   const navigate = useNavigate();
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
   const { roomCode } = useParams({ from: '/room/$roomCode/host' });
   const [gameCreated, setGameCreated] = useState(false);
   const [gameSnapshot, setGameSnapshot] = useState<GameSnapshot | null>(null);
@@ -23,18 +25,21 @@ export default function RoomHostScorerPage() {
   const [error, setError] = useState<string | null>(null);
   
   // Admin token management
-  const [adminToken, setAdminTokenState] = useState<string>('');
+  const [adminToken, setAdminTokenState] = useState<string | null>(null);
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tokenInputValue, setTokenInputValue] = useState('');
+
+  // Current user state - use principal ID directly
+  const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
+  const currentUserId = isAuthenticated ? identity?.getPrincipal().toString() : undefined;
 
   // Load admin token on mount
   useEffect(() => {
     const storedToken = getAdminToken(roomCode);
     if (storedToken) {
       setAdminTokenState(storedToken);
-    } else {
-      setShowTokenInput(true);
     }
+    // Don't show token input immediately - try owner path first if authenticated
   }, [roomCode]);
 
   const handleSaveToken = () => {
@@ -51,26 +56,25 @@ export default function RoomHostScorerPage() {
   const handleCreateGame = async (settings: {
     mode: 301 | 501;
     doubleOut: boolean;
-    players: string[];
+    players: PlayerAssignment[];
   }) => {
-    if (!adminToken) {
-      setError('Scorer token required. Please enter your token below.');
-      setShowTokenInput(true);
-      return;
-    }
-
     setIsCreatingGame(true);
     setError(null);
+    
     try {
-      const result = await createGameForRoom(actor, roomCode, adminToken, settings);
+      // Try with current token (null if owner path, or stored token)
+      const result = await createGameForRoom(actor, roomCode, adminToken, settings, currentUserId);
+      
       if (result.ok && result.snapshot) {
         setGameSnapshot(result.snapshot);
         setGameCreated(true);
       } else {
         setError(result.message || 'Failed to create game');
-        // If auth error, show token input
-        if (result.message?.includes('token')) {
-          setShowTokenInput(true);
+        // If auth error and not authenticated, prompt for token
+        if (result.message?.includes('not authorized') || result.message?.includes('Invalid scorer token')) {
+          if (!isAuthenticated) {
+            setShowTokenInput(true);
+          }
         }
       }
     } catch (err) {
@@ -122,7 +126,7 @@ export default function RoomHostScorerPage() {
           </Alert>
         )}
 
-        {/* Token input section */}
+        {/* Token input section - only show when needed */}
         {showTokenInput && (
           <Card>
             <CardHeader>
@@ -172,9 +176,26 @@ export default function RoomHostScorerPage() {
           </Alert>
         )}
 
+        {isAuthenticated && !adminToken && !showTokenInput && (
+          <Alert>
+            <AlertDescription>
+              You are signed in. If you are the room owner, you can create the game without a scorer token.
+              {' '}
+              <button
+                onClick={() => setShowTokenInput(true)}
+                className="underline hover:no-underline"
+              >
+                Or enter a scorer token
+              </button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <GameSettingsPanel
           onCreateGame={handleCreateGame}
           isCreating={isCreatingGame}
+          canAssignMe={isAuthenticated}
+          currentUsername={currentUserId ? 'Me' : undefined}
         />
       </div>
     );
