@@ -1,6 +1,7 @@
 import { RouterProvider, createRouter, createRoute, createRootRoute } from '@tanstack/react-router';
 import StartGamePage from './pages/StartGamePage';
 import GamePage from './pages/GamePage';
+import StatsPage from './pages/StatsPage';
 import AppLayout from './layouts/AppLayout';
 
 // Create root route with layout
@@ -22,8 +23,15 @@ const gameRoute = createRoute({
   component: GamePage,
 });
 
+// Create stats route
+const statsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/stats',
+  component: StatsPage,
+});
+
 // Create route tree
-const routeTree = rootRoute.addChildren([indexRoute, gameRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, gameRoute, statsRoute]);
 
 // Create router
 const router = createRouter({ routeTree });

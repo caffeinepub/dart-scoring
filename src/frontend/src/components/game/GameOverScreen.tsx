@@ -14,6 +14,7 @@ interface GameOverScreenProps {
   turns: number;
   onRematch: () => void;
   onNewGame: () => void;
+  onStats: () => void;
 }
 
 export default function GameOverScreen({
@@ -21,6 +22,7 @@ export default function GameOverScreen({
   turns,
   onRematch,
   onNewGame,
+  onStats,
 }: GameOverScreenProps) {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -45,6 +47,14 @@ export default function GameOverScreen({
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
+          <Button
+            onClick={onStats}
+            variant="secondary"
+            className="w-full"
+            size="lg"
+          >
+            View Stats
+          </Button>
           <Button
             onClick={onRematch}
             className="w-full"

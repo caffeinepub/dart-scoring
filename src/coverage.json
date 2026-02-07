@@ -1,69 +1,62 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T23:24:01.005Z",
+  "generatedAt": "2026-02-07T11:09:18.993Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 5,
+    "implemented": 0,
     "items": [
       {
-        "id": "REQ-19",
-        "summary": "Update the game-core rules to support finishing a leg and producing a Game Over state.\n\nRules to implement:\n- If Double Out is OFF and a turn results in remaining == 0, immediately end the game and record the winner.\n- If Double Out is ON and a turn results in remaining == 0, do not immediately end the game; instead mark the game as awaiting double-finish confirmation so the UI can prompt the user.\n- If Double Out is ON and remaining would become 1, continue treating it as a bust.\n\nThe game-core state must expose enough information for the UI to:\n- Know when the game is awaiting double confirmation\n- Know when the game is over\n- Identify the winner (player index/name)\n- Display the number of turns taken to win",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/lib/gameCore.ts",
-          "frontend/src/components/game/TurnHistory.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/lib/gameCore.ts",
-          "frontend/src/components/game/TurnHistory.tsx"
-        ]
+        "id": "REQ-74",
+        "summary": "Implement a backend API method equivalent to `POST /games/{game_id}/turns` that applies a new turn to a game (backend is the source of truth) and returns an updated game snapshot after the operation.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
-        "id": "REQ-20",
-        "summary": "Implement the Double Out confirmation prompt in the /game UI.\n\nWhen Double Out is ON and the game enters the awaiting double-finish confirmation state, immediately show a modal/prompt with the exact text:\n\"Was it a double finish?\"\n\nThe prompt must provide two actions:\n- YES: confirm the double finish and complete the win (transition to Game Over)\n- NO: treat the last scoring attempt like a bust by reverting the effect of that turn (restore the player’s remaining score to what it was before the turn) and continue the game normally\n\nWhile awaiting confirmation, prevent further score entry from being applied until the user chooses YES or NO.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
-          "frontend/src/components/game/Keypad.tsx",
-          "frontend/src/pages/GamePage.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
-          "frontend/src/components/game/Keypad.tsx",
-          "frontend/src/pages/GamePage.tsx"
-        ]
+        "id": "REQ-75",
+        "summary": "Implement backend scoring and rule enforcement for both input modes (\"total\" and \"3darts\"), including bust handling and deterministic double-out, with consistent stored fields on each created/updated turn.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
-        "id": "REQ-21",
-        "summary": "Add a Game Over screen in the frontend that appears when the game reaches a completed win state.\n\nThe Game Over screen must display:\n- The winner (player name)\n- The number of turns taken\n\nThe Game Over screen must include two buttons:\n- \"Rematch\" (start a new game using the same settings as the finished game)\n- \"New Game\" (navigate back to the Start Game page at /)\n\nUser-facing text on this screen must be in English.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/game/GameOverScreen.tsx",
-          "frontend/src/pages/GamePage.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/game/GameOverScreen.tsx",
-          "frontend/src/pages/GamePage.tsx"
-        ]
+        "id": "REQ-76",
+        "summary": "Implement a backend API method equivalent to `POST /games/{game_id}/undo` that removes the most recent turn for the given game and returns an updated game snapshot.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-77",
+        "summary": "Implement a backend API method equivalent to `PUT /turns/{turn_id}` that edits an existing turn (total or 3darts input) and deterministically replays/recomputes all subsequent turns from that point, returning an updated game snapshot.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-78",
+        "summary": "Standardize backend responses for the new gameplay mutation methods (create turn, undo, edit) so they always return either (a) an updated snapshot or (b) a structured, non-trapping error with a machine-readable code and an English message.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
+    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
-    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
-    "frontend/src/components/game/GameOverScreen.tsx",
-    "frontend/src/components/game/Keypad.tsx",
-    "frontend/src/components/game/TurnHistory.tsx",
-    "frontend/src/lib/gameCore.ts",
-    "frontend/src/pages/GamePage.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

@@ -1,79 +1,130 @@
 {
   "kind": "build_request",
-  "title": "Add Double Out finish confirmation and Game Over flow (winner, turns, rematch/new game)",
+  "title": "Backend is source of truth: implement applyTurn, undo, and edit-turn with deterministic replay",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-19",
-      "text": "Update the game-core rules to support finishing a leg and producing a Game Over state.\n\nRules to implement:\n- If Double Out is OFF and a turn results in remaining == 0, immediately end the game and record the winner.\n- If Double Out is ON and a turn results in remaining == 0, do not immediately end the game; instead mark the game as awaiting double-finish confirmation so the UI can prompt the user.\n- If Double Out is ON and remaining would become 1, continue treating it as a bust.\n\nThe game-core state must expose enough information for the UI to:\n- Know when the game is awaiting double confirmation\n- Know when the game is over\n- Identify the winner (player index/name)\n- Display the number of turns taken to win",
-      "target": "frontend",
+      "id": "REQ-74",
+      "text": "Implement a backend API method equivalent to `POST /games/{game_id}/turns` that applies a new turn to a game (backend is the source of truth) and returns an updated game snapshot after the operation.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4",
+          "msg-8"
         ],
         "quotes": [
-          "Jeśli DoubleOut OFF i remaining == 0 → Game Over (zwycięzca)",
-          "Jeśli DoubleOut ON i remaining == 0: pokaż modal/prompt: “Was it a double finish?”"
+          "POST /games/{game_id}/turns\nbody:\nplayer_id\ninput_mode: \"total\"|\"3darts\"\ntotal (int) lub darts (np. [\"T20\",\"T20\",\"D20\"])\nsource: \"manual\"|\"voice\" (kamera na razie nie)\nbackend:\nliczy scored_total\nsprawdza bust i double-out\nzapisuje turn\naktualizuje remaining gracza\nprzełącza “next player” (może być wyliczane w snapshot)"
         ]
       },
       "acceptanceCriteria": [
-        "With Double Out OFF, entering an exact checkout to 0 transitions the game into a game-over state and records the finishing player as winner.",
-        "With Double Out ON, entering an exact checkout to 0 transitions the game into an awaiting-confirmation state (not game-over yet).",
-        "The game-core state provides winner info and turn count when game-over is reached.",
-        "Existing bust behavior (remaining < 0 or Double Out ON and newRemaining == 1) continues to work as before."
+        "The backend exposes a shared update method whose request shape includes: game_id, player_id, input_mode = \"total\"|\"3darts\", and source = \"manual\"|\"voice\".",
+        "For input_mode=\"total\", the request accepts `total : Int` (or Nat) and rejects missing/invalid total values.",
+        "For input_mode=\"3darts\", the request accepts `darts : [Text]` where each entry is a dart notation string like \"T20\", \"D20\", \"20\", \"OB\", \"B\", and rejects missing/invalid darts values.",
+        "The backend computes `scored_total` deterministically from the provided input (for 3darts, sum of up to 3 darts; for total, use validated total) and stores it on the turn record.",
+        "The backend validates and applies bust + deterministic double-out rules when computing remaining_after (no interactive double-finish confirmation flow).",
+        "The backend persists the new turn and updates the affected player’s remaining score in canister storage.",
+        "The backend advances to the next player after the turn is processed (may be returned as part of the snapshot, even if not persisted as a field).",
+        "The method returns an updated snapshot after the operation including at minimum: game info, players with updated remaining, and turn list (or last N turns) reflecting the newly created turn."
       ]
     },
     {
-      "id": "REQ-20",
-      "text": "Implement the Double Out confirmation prompt in the /game UI.\n\nWhen Double Out is ON and the game enters the awaiting double-finish confirmation state, immediately show a modal/prompt with the exact text:\n\"Was it a double finish?\"\n\nThe prompt must provide two actions:\n- YES: confirm the double finish and complete the win (transition to Game Over)\n- NO: treat the last scoring attempt like a bust by reverting the effect of that turn (restore the player’s remaining score to what it was before the turn) and continue the game normally\n\nWhile awaiting confirmation, prevent further score entry from being applied until the user chooses YES or NO.",
-      "target": "frontend",
+      "id": "REQ-75",
+      "text": "Implement backend scoring and rule enforcement for both input modes (\"total\" and \"3darts\"), including bust handling and deterministic double-out, with consistent stored fields on each created/updated turn.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4",
+          "msg-8"
         ],
         "quotes": [
-          "pokaż modal/prompt: “Was it a double finish?”",
-          "YES → Game Over",
-          "NO → traktuj jak bust (cofnij efekt tury)"
+          "backend:\nliczy scored_total\nsprawdza bust i double-out\nzapisuje turn\naktualizuje remaining gracza"
         ]
       },
       "acceptanceCriteria": [
-        "When awaiting confirmation, the UI shows a prompt/modal containing exactly: \"Was it a double finish?\".",
-        "Choosing YES ends the game and proceeds to the Game Over screen/section.",
-        "Choosing NO reverts the last turn’s scoring effect (remaining restored to the pre-turn value) and the game continues (the user can keep entering scores).",
-        "No additional score submissions can be applied until the confirmation prompt is resolved."
+        "For each applied turn, the backend stores (or returns in snapshot) whether the turn is a bust, plus remaining_before and remaining_after for that player.",
+        "For total mode, the backend enforces a reasonable validation range (must not accept negative totals; must not accept values above 180 unless explicitly configured otherwise).",
+        "For 3darts mode, the backend parses dart notation: Sx=x (plain \"20\" counts as single), Dx=2x, Tx=3x, OB=25, B=50.",
+        "Bust rules are enforced deterministically: if remaining would go below 0 at any point (or total exceeds remaining), the entire turn is a bust and remaining_after equals remaining_before.",
+        "If double-out is ON, remaining==1 is always a bust (remaining_after equals remaining_before).",
+        "If double-out is ON, a finish (remaining reaches 0) is only valid if the last dart is a double (D) or Bull (B=50); otherwise the entire turn is a bust.",
+        "If double-out is OFF, remaining reaching 0 ends the game immediately and the snapshot identifies the winner player_id.",
+        "If the game is already finished/completed, applying a new turn returns an error response (no trap) with a machine-readable code and an English message."
       ]
     },
     {
-      "id": "REQ-21",
-      "text": "Add a Game Over screen in the frontend that appears when the game reaches a completed win state.\n\nThe Game Over screen must display:\n- The winner (player name)\n- The number of turns taken\n\nThe Game Over screen must include two buttons:\n- \"Rematch\" (start a new game using the same settings as the finished game)\n- \"New Game\" (navigate back to the Start Game page at /)\n\nUser-facing text on this screen must be in English.",
-      "target": "frontend",
+      "id": "REQ-76",
+      "text": "Implement a backend API method equivalent to `POST /games/{game_id}/undo` that removes the most recent turn for the given game and returns an updated game snapshot.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4",
+          "msg-8"
         ],
         "quotes": [
-          "Ekran Game Over: zwycięzca + liczba tur",
-          "przyciski: Rematch (te same ustawienia), New Game (wróć na start)"
+          "POST /games/{game_id}/undo\ncofa ostatnią turę (usuwa last turn + aktualizuje remaining)"
         ]
       },
       "acceptanceCriteria": [
-        "When a game is won, the app shows a Game Over UI that clearly displays winner name and turn count.",
-        "Clicking \"Rematch\" starts a fresh game with the same settings (mode, Double Out flag, player names) and resets scores/turn history.",
-        "Clicking \"New Game\" navigates to / (Start Game) without crashing.",
-        "All visible text added for Game Over/confirmation is English."
+        "The backend exposes a shared update method equivalent to undo-last-turn for a game_id.",
+        "Undo removes the last turn (highest turn_index for the game) from storage.",
+        "After undo, the backend recomputes and persists the correct remaining scores for all players (at minimum for affected players) so that the game state matches exactly what it would be without that turn.",
+        "If there are no turns to undo, the backend returns a non-trapping error response with a machine-readable code and an English message.",
+        "The method returns an updated snapshot after the operation reflecting the removed turn and updated player remaining values."
+      ]
+    },
+    {
+      "id": "REQ-77",
+      "text": "Implement a backend API method equivalent to `PUT /turns/{turn_id}` that edits an existing turn (total or 3darts input) and deterministically replays/recomputes all subsequent turns from that point, returning an updated game snapshot.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-4",
+          "msg-8"
+        ],
+        "quotes": [
+          "PUT /turns/{turn_id}\nedycja tury (total lub darts)\npo edycji wykonaj replay wszystkich kolejnych tur od tego miejsca (recompute state) Zwracaj nowy snapshot gry po każdej operacji."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The backend exposes a shared update method to edit an existing turn by turn_id with the same input fields as turn creation (player_id must remain consistent with the original stored turn, unless explicitly supported; if not supported, return a clear error).",
+        "After editing, the backend recomputes the entire game state deterministically from the edited turn index onward (including bust flags, scored_total, remaining_before/after, next player sequencing, and game-finished/winner state).",
+        "Recompute/replay does not trap on expected client errors; invalid edits return a machine-readable error code and an English message.",
+        "After replay, all persisted player remaining values match the replayed results and all persisted turn derived fields (scored_total, is_bust, remaining_before/after) are consistent with the replay.",
+        "The method returns the updated snapshot after the operation reflecting the edited turn and any changes to later turns and player remaining values."
+      ]
+    },
+    {
+      "id": "REQ-78",
+      "text": "Standardize backend responses for the new gameplay mutation methods (create turn, undo, edit) so they always return either (a) an updated snapshot or (b) a structured, non-trapping error with a machine-readable code and an English message.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-4",
+          "msg-8"
+        ],
+        "quotes": [
+          "Zwracaj nowy snapshot gry po każdej operacji."
+        ]
+      },
+      "acceptanceCriteria": [
+        "For each gameplay mutation endpoint-equivalent method, success responses include a snapshot object with enough information for the frontend to render game + players + turns.",
+        "For each gameplay mutation endpoint-equivalent method, expected failures return a Result-like error object (no Runtime.trap) with: error code (Text or variant) and an English message.",
+        "Error cases covered include at minimum: game not found, turn not found, player not found / player not in game, invalid payload for input_mode, and game already finished when adding turns.",
+        "No user-facing Polish strings are introduced in responses; English only for messages."
       ]
     }
   ],
   "constraints": [
-    "Frontend must not modify any files under frontend/src/components/ui (compose existing UI primitives instead).",
-    "Keep the backend as a single Motoko actor; no backend changes are required for this feature unless strictly necessary.",
-    "Do not route any UI assets through the backend."
+    "Backend must remain a single Motoko actor in `backend/main.mo` (no additional backend services).",
+    "Do not modify any frontend files listed as immutable in SYSTEM_CONTEXT.",
+    "Do not implement camera as a turn input source yet; only accept source values \"manual\" and \"voice\" for now.",
+    "Keep behavior deterministic; do not reintroduce any interactive double-finish confirmation state in backend logic."
   ],
   "nonGoals": [
-    "Adding online/multiplayer features or real-time synchronization.",
-    "Persisting game-in-progress state to the backend.",
-    "Changing the Start Game settings UX beyond what is necessary for Rematch/New Game navigation."
+    "Frontend wiring to these backend gameplay methods (this request is backend logic + endpoints only).",
+    "WebSocket/real-time updates.",
+    "Third-party databases or external persistence.",
+    "Camera-driven scoring or any \"source: camera\" handling beyond rejecting/ignoring it."
   ],
   "imageRequirements": {
     "required": [],

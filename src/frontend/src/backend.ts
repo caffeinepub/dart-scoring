@@ -89,10 +89,257 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface backendInterface {
+export interface Room {
+    id: bigint;
+    status: RoomStatus;
+    code: string;
+    hostId: bigint;
 }
+export interface Turn {
+    id: bigint;
+    playerId: bigint;
+    gameId: bigint;
+    score: bigint;
+    turnIndex: bigint;
+}
+export interface Game {
+    id: bigint;
+    startTime: bigint;
+    status: GameStatus;
+    endTime?: bigint;
+    roomId: bigint;
+}
+export enum GameStatus {
+    Active = "Active",
+    Completed = "Completed",
+    Pending = "Pending"
+}
+export enum RoomStatus {
+    Open = "Open",
+    Closed = "Closed",
+    InProgress = "InProgress"
+}
+export interface backendInterface {
+    createGame(roomId: bigint): Promise<Game>;
+    createRoom(code: string, hostId: bigint): Promise<Room>;
+    createTurn(gameId: bigint, playerId: bigint, turnIndex: bigint): Promise<Turn>;
+    getGamesByRoom(roomId: bigint): Promise<Array<Game>>;
+    getRoomByCode(code: string): Promise<Room | null>;
+    getTurnsByGameAndIndex(gameId: bigint, turnIndex: bigint): Promise<Array<Turn>>;
+    health(): Promise<string>;
+    updateGameStatus(gameId: bigint, newStatus: GameStatus): Promise<void>;
+}
+import type { Game as _Game, GameStatus as _GameStatus, Room as _Room, RoomStatus as _RoomStatus } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async createGame(arg0: bigint): Promise<Game> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createGame(arg0);
+                return from_candid_Game_n1(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createGame(arg0);
+            return from_candid_Game_n1(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async createRoom(arg0: string, arg1: bigint): Promise<Room> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createRoom(arg0, arg1);
+                return from_candid_Room_n6(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createRoom(arg0, arg1);
+            return from_candid_Room_n6(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async createTurn(arg0: bigint, arg1: bigint, arg2: bigint): Promise<Turn> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createTurn(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createTurn(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async getGamesByRoom(arg0: bigint): Promise<Array<Game>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getGamesByRoom(arg0);
+                return from_candid_vec_n10(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getGamesByRoom(arg0);
+            return from_candid_vec_n10(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getRoomByCode(arg0: string): Promise<Room | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getRoomByCode(arg0);
+                return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getRoomByCode(arg0);
+            return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getTurnsByGameAndIndex(arg0: bigint, arg1: bigint): Promise<Array<Turn>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getTurnsByGameAndIndex(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getTurnsByGameAndIndex(arg0, arg1);
+            return result;
+        }
+    }
+    async health(): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.health();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.health();
+            return result;
+        }
+    }
+    async updateGameStatus(arg0: bigint, arg1: GameStatus): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateGameStatus(arg0, to_candid_GameStatus_n12(this._uploadFile, this._downloadFile, arg1));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateGameStatus(arg0, to_candid_GameStatus_n12(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+}
+function from_candid_GameStatus_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GameStatus): GameStatus {
+    return from_candid_variant_n4(_uploadFile, _downloadFile, value);
+}
+function from_candid_Game_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Game): Game {
+    return from_candid_record_n2(_uploadFile, _downloadFile, value);
+}
+function from_candid_RoomStatus_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _RoomStatus): RoomStatus {
+    return from_candid_variant_n9(_uploadFile, _downloadFile, value);
+}
+function from_candid_Room_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Room): Room {
+    return from_candid_record_n7(_uploadFile, _downloadFile, value);
+}
+function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Room]): Room | null {
+    return value.length === 0 ? null : from_candid_Room_n6(_uploadFile, _downloadFile, value[0]);
+}
+function from_candid_opt_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_record_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    startTime: bigint;
+    status: _GameStatus;
+    endTime: [] | [bigint];
+    roomId: bigint;
+}): {
+    id: bigint;
+    startTime: bigint;
+    status: GameStatus;
+    endTime?: bigint;
+    roomId: bigint;
+} {
+    return {
+        id: value.id,
+        startTime: value.startTime,
+        status: from_candid_GameStatus_n3(_uploadFile, _downloadFile, value.status),
+        endTime: record_opt_to_undefined(from_candid_opt_n5(_uploadFile, _downloadFile, value.endTime)),
+        roomId: value.roomId
+    };
+}
+function from_candid_record_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    status: _RoomStatus;
+    code: string;
+    hostId: bigint;
+}): {
+    id: bigint;
+    status: RoomStatus;
+    code: string;
+    hostId: bigint;
+} {
+    return {
+        id: value.id,
+        status: from_candid_RoomStatus_n8(_uploadFile, _downloadFile, value.status),
+        code: value.code,
+        hostId: value.hostId
+    };
+}
+function from_candid_variant_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    Active: null;
+} | {
+    Completed: null;
+} | {
+    Pending: null;
+}): GameStatus {
+    return "Active" in value ? GameStatus.Active : "Completed" in value ? GameStatus.Completed : "Pending" in value ? GameStatus.Pending : value;
+}
+function from_candid_variant_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    Open: null;
+} | {
+    Closed: null;
+} | {
+    InProgress: null;
+}): RoomStatus {
+    return "Open" in value ? RoomStatus.Open : "Closed" in value ? RoomStatus.Closed : "InProgress" in value ? RoomStatus.InProgress : value;
+}
+function from_candid_vec_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Game>): Array<Game> {
+    return value.map((x)=>from_candid_Game_n1(_uploadFile, _downloadFile, x));
+}
+function to_candid_GameStatus_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GameStatus): _GameStatus {
+    return to_candid_variant_n13(_uploadFile, _downloadFile, value);
+}
+function to_candid_variant_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GameStatus): {
+    Active: null;
+} | {
+    Completed: null;
+} | {
+    Pending: null;
+} {
+    return value == GameStatus.Active ? {
+        Active: null
+    } : value == GameStatus.Completed ? {
+        Completed: null
+    } : value == GameStatus.Pending ? {
+        Pending: null
+    } : value;
 }
 export interface CreateActorOptions {
     agent?: Agent;

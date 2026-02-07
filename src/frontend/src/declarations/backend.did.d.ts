@@ -10,7 +10,42 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export interface _SERVICE {}
+export interface Game {
+  'id' : bigint,
+  'startTime' : bigint,
+  'status' : GameStatus,
+  'endTime' : [] | [bigint],
+  'roomId' : bigint,
+}
+export type GameStatus = { 'Active' : null } |
+  { 'Completed' : null } |
+  { 'Pending' : null };
+export interface Room {
+  'id' : bigint,
+  'status' : RoomStatus,
+  'code' : string,
+  'hostId' : bigint,
+}
+export type RoomStatus = { 'Open' : null } |
+  { 'Closed' : null } |
+  { 'InProgress' : null };
+export interface Turn {
+  'id' : bigint,
+  'playerId' : bigint,
+  'gameId' : bigint,
+  'score' : bigint,
+  'turnIndex' : bigint,
+}
+export interface _SERVICE {
+  'createGame' : ActorMethod<[bigint], Game>,
+  'createRoom' : ActorMethod<[string, bigint], Room>,
+  'createTurn' : ActorMethod<[bigint, bigint, bigint], Turn>,
+  'getGamesByRoom' : ActorMethod<[bigint], Array<Game>>,
+  'getRoomByCode' : ActorMethod<[string], [] | [Room]>,
+  'getTurnsByGameAndIndex' : ActorMethod<[bigint, bigint], Array<Turn>>,
+  'health' : ActorMethod<[], string>,
+  'updateGameStatus' : ActorMethod<[bigint, GameStatus], undefined>,
+}
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
 export declare const idlFactory: IDL.InterfaceFactory;

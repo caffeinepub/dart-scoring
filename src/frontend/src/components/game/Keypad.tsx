@@ -1,4 +1,4 @@
-import { Delete } from 'lucide-react';
+import { Delete, Mic } from 'lucide-react';
 
 interface KeypadProps {
   currentInput: string;
@@ -7,6 +7,9 @@ interface KeypadProps {
   onSubmit: () => void;
   onSetInput: (value: string) => void;
   disabled?: boolean;
+  voiceSupported?: boolean;
+  onVoiceStart?: () => void;
+  voiceDisabled?: boolean;
 }
 
 export default function Keypad({ 
@@ -16,17 +19,30 @@ export default function Keypad({
   onSubmit, 
   onSetInput,
   disabled = false,
+  voiceSupported = false,
+  onVoiceStart,
+  voiceDisabled = false,
 }: KeypadProps) {
   const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
   const quickChips = [26, 41, 45, 60, 85, 100, 121, 140, 180];
 
   return (
     <div className="rounded-lg border border-border bg-card p-6">
-      {/* Display current input */}
-      <div className="mb-4 h-16 rounded-lg bg-muted flex items-center justify-center">
+      {/* Display current input with optional microphone button */}
+      <div className="mb-4 h-16 rounded-lg bg-muted flex items-center justify-center relative">
         <span className="text-3xl font-bold tracking-wider">
           {currentInput || '0'}
         </span>
+        {voiceSupported && onVoiceStart && (
+          <button
+            onClick={onVoiceStart}
+            disabled={disabled || voiceDisabled}
+            className="absolute right-3 p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
+            aria-label="Voice input"
+          >
+            <Mic className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Quick score chips */}

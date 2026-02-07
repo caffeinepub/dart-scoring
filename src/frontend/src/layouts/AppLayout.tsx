@@ -1,7 +1,27 @@
+import { useEffect } from 'react';
 import { Outlet } from '@tanstack/react-router';
 import { Target } from 'lucide-react';
 
 export default function AppLayout() {
+  // Register service worker for PWA offline support
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      // Only register once
+      navigator.serviceWorker.getRegistration().then((registration) => {
+        if (!registration) {
+          navigator.serviceWorker
+            .register('/service-worker.js')
+            .then((registration) => {
+              console.log('Service Worker registered:', registration.scope);
+            })
+            .catch((error) => {
+              console.error('Service Worker registration failed:', error);
+            });
+        }
+      });
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

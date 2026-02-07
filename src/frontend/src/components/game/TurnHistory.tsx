@@ -5,6 +5,21 @@ interface TurnHistoryProps {
   turns: Turn[];
 }
 
+function formatDart(mult: string, value: number): string {
+  if (mult === 'OB') return 'OB';
+  if (mult === 'B') return 'Bull';
+  return `${mult}${value}`;
+}
+
+function formatDartBreakdown(turn: Turn): string {
+  if (turn.darts.length === 0) {
+    return '';
+  }
+  
+  const dartStrings = turn.darts.map(dart => formatDart(dart.mult, dart.value));
+  return ` (${dartStrings.join(' ')})`;
+}
+
 export default function TurnHistory({ turns }: TurnHistoryProps) {
   // Display only the last 5 turns
   const displayTurns = turns.slice(-5);
@@ -35,28 +50,29 @@ export default function TurnHistory({ turns }: TurnHistoryProps) {
                   className="border-t border-border hover:bg-muted/30 transition-colors"
                 >
                   <td className="p-4 text-sm text-muted-foreground">#{turn.turnNumber}</td>
-                  <td className="p-4 font-medium">{turn.playerName}</td>
-                  <td className="p-4 text-right font-semibold">{turn.scoredPoints}</td>
-                  <td className="p-4 text-right text-muted-foreground">{turn.remainingAfter}</td>
+                  <td className="p-4 text-sm font-medium">{turn.playerName}</td>
+                  <td className="p-4 text-sm text-right font-mono">
+                    {turn.isBust ? (
+                      <span className="text-destructive font-semibold">
+                        BUST{formatDartBreakdown(turn)}
+                      </span>
+                    ) : (
+                      <span>
+                        -{turn.scoredPoints}{formatDartBreakdown(turn)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-4 text-sm text-right font-mono font-semibold">
+                    {turn.remainingAfter}
+                  </td>
                   <td className="p-4 text-center">
-                    {turn.isBust && (
-                      <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium">
-                        <AlertCircle className="h-3 w-3" />
-                        BUST
-                      </span>
-                    )}
-                    {turn.isConfirmedWin && (
-                      <span className="inline-flex items-center gap-1 text-primary text-xs font-medium">
-                        <Trophy className="h-3 w-3" />
-                        WIN
-                      </span>
-                    )}
-                    {turn.needsDoubleConfirmation && !turn.isConfirmedWin && (
-                      <span className="inline-flex items-center gap-1 text-success text-xs font-medium">
-                        <CheckCircle2 className="h-3 w-3" />
-                        FINISH
-                      </span>
-                    )}
+                    {turn.isBust ? (
+                      <AlertCircle className="h-5 w-5 text-destructive inline-block" />
+                    ) : turn.isConfirmedWin ? (
+                      <Trophy className="h-5 w-5 text-primary inline-block" />
+                    ) : turn.remainingAfter === 0 ? (
+                      <CheckCircle2 className="h-5 w-5 text-success inline-block" />
+                    ) : null}
                   </td>
                 </tr>
               ))}

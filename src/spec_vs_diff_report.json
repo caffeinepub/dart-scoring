@@ -1,60 +1,71 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T23:24:01.001Z",
-  "summary": "REQ-19 game-core updates appear largely implemented (game phases, awaiting-confirmation vs game-over behavior, winner/turns tracking, and bust handling). REQ-21 Game Over screen and rematch/new game actions are implemented. REQ-20 confirmation prompt is present, but the modal text/actions may not meet the “exact text”/YES-NO wording, and it’s not fully evidenced that score entry is blocked while awaiting confirmation due to truncation in GamePage.tsx.",
+  "generatedAt": "2026-02-07T11:09:18.989Z",
+  "summary": "The diff does not implement the requested backend gameplay mutation APIs (apply turn with deterministic scoring, undo last turn, edit turn with deterministic replay) nor the standardized Result-style error responses. Instead, it adds/keeps basic room/game/turn CRUD-like methods and a no-op migration scaffold, with several methods still using `Runtime.trap` on expected errors.",
   "missing_requirements": [
     {
-      "id": "REQ-20",
-      "requirement": "When awaiting confirmation, the UI shows a prompt/modal containing exactly: \"Was it a double finish?\"",
-      "reason": "The modal includes additional user-facing title text (“Double Finish Confirmation”), so the prompt content is not limited to exactly the required string.",
+      "id": "REQ-74",
+      "requirement": "Implement backend API method to apply a new turn (POST /games/{game_id}/turns equivalent) with request fields game_id, player_id, input_mode (total|3darts), source (manual|voice); validate input, compute scored_total deterministically, apply bust + double-out rules, persist turn + update remaining, advance next player, and return updated game snapshot.",
+      "reason": "No method matching the required request shape (input_mode/source/total/darts) is present in the shown backend diff. The only related method is `createTurn(gameId, playerId, turnIndex)` which stores `score = 0` and does not compute scoring, enforce rules, update remaining, or return a full snapshot.",
       "evidence": [
-        "frontend/src/components/game/DoubleFinishConfirmModal.tsx"
+        "backend/main.mo"
       ]
     },
     {
-      "id": "REQ-20",
-      "requirement": "The prompt must provide two actions: YES and NO (as labeled actions).",
-      "reason": "The buttons are labeled “Yes” and “No” (not “YES”/“NO”).",
+      "id": "REQ-75",
+      "requirement": "Implement deterministic scoring/rule enforcement for total and 3darts modes (dart parsing, range validation, bust rules, double-out rules) and store/return scored_total, is_bust, remaining_before, remaining_after per turn.",
+      "reason": "The `Turn` type only contains `score : Nat` and there is no code shown for dart notation parsing, total validation (<=180), bust/double-out logic, or remaining_before/after fields.",
       "evidence": [
-        "frontend/src/components/game/DoubleFinishConfirmModal.tsx"
+        "backend/main.mo"
       ]
     },
     {
-      "id": "REQ-20",
-      "requirement": "While awaiting confirmation, prevent further score entry from being applied until the user chooses YES or NO.",
-      "reason": "Although Keypad gained a `disabled` prop, the provided/truncated GamePage diff does not show wiring that disables score entry/submission while `game.phase === 'awaiting-confirmation'` (render section is truncated).",
+      "id": "REQ-76",
+      "requirement": "Implement undo-last-turn API (POST /games/{game_id}/undo equivalent) that removes the most recent turn, recomputes remaining scores deterministically, returns updated snapshot, and returns structured non-trapping error if no turns.",
+      "reason": "No undo method is present in the diff, and there is no logic for finding/removing the highest turn_index, recomputing remaining values, or returning a snapshot/error result.",
       "evidence": [
-        "frontend/src/components/game/Keypad.tsx",
-        "frontend/src/pages/GamePage.tsx"
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-77",
+      "requirement": "Implement edit-turn API (PUT /turns/{turn_id} equivalent) to edit an existing turn and deterministically replay/recompute all subsequent turns, persisting consistent derived fields and returning updated snapshot or structured error.",
+      "reason": "No edit method is present, and there is no replay/recompute logic or turn lookup by turn_id for editing.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-78",
+      "requirement": "Standardize responses for create turn/undo/edit to return either an updated snapshot or a structured non-trapping error with machine-readable code and English message (no Runtime.trap), covering game/turn/player not found, invalid payload, game finished, etc.",
+      "reason": "Shown methods use `Runtime.trap` for expected errors like game/room not found, and there are no Result-like response types or snapshot responses for the requested mutation endpoints.",
+      "evidence": [
+        "backend/main.mo"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Modal adds an extra title \"Double Finish Confirmation\" above the required confirmation question.",
-      "reason": "BuildRequest only specifies showing a prompt/modal with the exact text \"Was it a double finish?\" and does not request an additional title.",
+      "description": "Added a no-op backend migration module and actor migration hook not requested by the BuildRequest.",
+      "reason": "BuildRequest focuses on implementing applyTurn/undo/edit-turn deterministic replay APIs and standardized responses; it does not request introducing migration scaffolding or a new migration file.",
       "evidence": [
-        "frontend/src/components/game/DoubleFinishConfirmModal.tsx"
+        "backend/migration.mo",
+        "backend/main.mo"
       ]
     },
     {
-      "description": "Game Over screen includes a trophy icon and additional congratulatory text (e.g., \"Congratulations to the winner\").",
-      "reason": "BuildRequest requires displaying winner name and turns plus Rematch/New Game buttons; icons and extra congratulatory copy were not explicitly requested.",
+      "description": "Added/modified health and room/game management endpoints (health, createRoom, createGame, updateGameStatus, getRoomByCode, getGamesByRoom) beyond the requested gameplay mutation methods.",
+      "reason": "Non-goals specify backend logic + endpoints only for gameplay methods; the diff includes additional endpoints not mentioned in REQ-74..REQ-78.",
       "evidence": [
-        "frontend/src/components/game/GameOverScreen.tsx"
+        "backend/main.mo"
       ]
     }
   ],
-  "confidence": 0.68,
+  "confidence": 0.74,
   "changed_files": [
-    "frontend-file-summaries.txt",
-    "frontend/src/components/game/DoubleFinishConfirmModal.tsx",
-    "frontend/src/components/game/GameOverScreen.tsx",
-    "frontend/src/components/game/Keypad.tsx",
-    "frontend/src/components/game/TurnHistory.tsx",
-    "frontend/src/lib/gameCore.ts",
-    "frontend/src/pages/GamePage.tsx",
+    "backend/main.mo",
+    "backend/migration.mo",
     "project_state.json"
   ]
 }

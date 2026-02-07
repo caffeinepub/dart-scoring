@@ -8,10 +8,100 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const idlService = IDL.Service({});
+export const GameStatus = IDL.Variant({
+  'Active' : IDL.Null,
+  'Completed' : IDL.Null,
+  'Pending' : IDL.Null,
+});
+export const Game = IDL.Record({
+  'id' : IDL.Nat,
+  'startTime' : IDL.Int,
+  'status' : GameStatus,
+  'endTime' : IDL.Opt(IDL.Int),
+  'roomId' : IDL.Nat,
+});
+export const RoomStatus = IDL.Variant({
+  'Open' : IDL.Null,
+  'Closed' : IDL.Null,
+  'InProgress' : IDL.Null,
+});
+export const Room = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : RoomStatus,
+  'code' : IDL.Text,
+  'hostId' : IDL.Nat,
+});
+export const Turn = IDL.Record({
+  'id' : IDL.Nat,
+  'playerId' : IDL.Nat,
+  'gameId' : IDL.Nat,
+  'score' : IDL.Nat,
+  'turnIndex' : IDL.Nat,
+});
+
+export const idlService = IDL.Service({
+  'createGame' : IDL.Func([IDL.Nat], [Game], []),
+  'createRoom' : IDL.Func([IDL.Text, IDL.Nat], [Room], []),
+  'createTurn' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Nat], [Turn], []),
+  'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
+  'getRoomByCode' : IDL.Func([IDL.Text], [IDL.Opt(Room)], ['query']),
+  'getTurnsByGameAndIndex' : IDL.Func(
+      [IDL.Nat, IDL.Nat],
+      [IDL.Vec(Turn)],
+      ['query'],
+    ),
+  'health' : IDL.Func([], [IDL.Text], ['query']),
+  'updateGameStatus' : IDL.Func([IDL.Nat, GameStatus], [], []),
+});
 
 export const idlInitArgs = [];
 
-export const idlFactory = ({ IDL }) => { return IDL.Service({}); };
+export const idlFactory = ({ IDL }) => {
+  const GameStatus = IDL.Variant({
+    'Active' : IDL.Null,
+    'Completed' : IDL.Null,
+    'Pending' : IDL.Null,
+  });
+  const Game = IDL.Record({
+    'id' : IDL.Nat,
+    'startTime' : IDL.Int,
+    'status' : GameStatus,
+    'endTime' : IDL.Opt(IDL.Int),
+    'roomId' : IDL.Nat,
+  });
+  const RoomStatus = IDL.Variant({
+    'Open' : IDL.Null,
+    'Closed' : IDL.Null,
+    'InProgress' : IDL.Null,
+  });
+  const Room = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : RoomStatus,
+    'code' : IDL.Text,
+    'hostId' : IDL.Nat,
+  });
+  const Turn = IDL.Record({
+    'id' : IDL.Nat,
+    'playerId' : IDL.Nat,
+    'gameId' : IDL.Nat,
+    'score' : IDL.Nat,
+    'turnIndex' : IDL.Nat,
+  });
+  
+  return IDL.Service({
+    'createGame' : IDL.Func([IDL.Nat], [Game], []),
+    'createRoom' : IDL.Func([IDL.Text, IDL.Nat], [Room], []),
+    'createTurn' : IDL.Func([IDL.Nat, IDL.Nat, IDL.Nat], [Turn], []),
+    'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
+    'getRoomByCode' : IDL.Func([IDL.Text], [IDL.Opt(Room)], ['query']),
+    'getTurnsByGameAndIndex' : IDL.Func(
+        [IDL.Nat, IDL.Nat],
+        [IDL.Vec(Turn)],
+        ['query'],
+      ),
+    'health' : IDL.Func([], [IDL.Text], ['query']),
+    'updateGameStatus' : IDL.Func([IDL.Nat, GameStatus], [], []),
+  });
+};
 
 export const init = ({ IDL }) => { return []; };

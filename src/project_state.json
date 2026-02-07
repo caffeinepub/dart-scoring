@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 11,
-  "summary": "Build a PWA web app \"Dart Scoring\" using Next.js + React + TypeScript, with tablet/phone-friendly UI plus core game state/data model and scoring rules logic (ready to wire into the UI).",
+  "projectStateVersion": 31,
+  "summary": "Build a PWA web app \"Dart Scoring\" using Next.js + React + TypeScript, with tablet/phone-friendly UI plus core game state/data model and deterministic scoring rules (including optional per-dart 3-dart turn entry). Add basic \"pro\" features: an optional checkout helper (for remaining <= 170) and per-game player statistics with a Stats screen. Extend the app with 1–3 camera/video preview sources (Webcam via getUserMedia and HLS URL) shown on the /game screen, plus a Manual Review flow to review/edit the last turn and replay game state, and add a ShotEvent data model + ScoringProvider interface stub as foundation for future auto-scoring. Add a backend service where the backend is the source of truth for game state, including endpoints to create turns (applyTurn with total or 3-darts), undo the last turn, and edit a turn with deterministic replay of subsequent turns, returning an updated game snapshot after each operation.",
   "architectural_notes": [
     "Tech stack: Next.js + React + TypeScript; target is a PWA.",
     "Initial routes/pages required: / (Start Game) and /game (Game Screen).",
@@ -9,9 +9,10 @@
     "Include a basic layout with a header displaying the app name (Dart Scoring).",
     "Prepare component structure: PlayerCard, Keypad, TurnHistory; do not implement game logic yet (navigation + UI only).",
     "Persist Start Game settings (mode, double out, players) from `/` to `/game` using localStorage as the simplest/stablest approach.",
-    "Add core game state module (UI-agnostic) with Game/Player/Turn types and pure functions: startGame(settings), applyTurn(scoredPoints 0–180), undoLastTurn(); implement bust rules and Double Out special cases incl. needsDoubleConfirmation flag in state.",
     "On `/game`, connect UI to core game state: PlayerCard shows remaining and active highlight from currentPlayerIndex; Keypad has input + digit buttons + Enter + quick-score chips (26,41,45,60,85,100,121,140,180); Enter submits to applyTurn() and updates turn history; Undo triggers undoLastTurn(); history list shows last 5 turns.",
-    "Implement game-over flow: if Double Out OFF and remaining==0 -> winner; if Double Out ON and remaining==0 -> ask \"Was it a double finish?\"; YES -> winner, NO -> treat as bust (revert turn). Add Game Over UI with winner + turn count and actions Rematch (same settings) / New Game (back to /)."
+    "Persist currentGame to localStorage after each applied turn (and after undo / relevant state transitions) to enable resume.",
+    "Replace interactive Double Out confirmation with deterministic Double Out validation in game-core (no awaiting-confirmation state / no confirmation modal).",
+    "Add a lightweight checkout-suggestion module/table for common finishes <= 170 (1–3 suggestions), respecting Double Out (must finish on D or Bull when enabled)."
   ],
   "known_issues": [],
   "isFixRequest": false,
@@ -183,6 +184,270 @@
         "REQ-21"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-persist-the-current-in-progress-game-state-to-localstorage-after-every-gameplay-state-change-so-the-game-can-be-restored-offline-later-this-must-include-saving-after-1-a-successful-score-entry-applyturn-2-undo-3-confirming-a-double-finish-yes-4-rejecting-a-double-finish-no-and-5-rematch-starting-a-new-game",
+      "title": "Persist the current in-progress game state to localStorage after every gameplay state change so the game can be restored offline later. This must include saving after: (1) a successful score entry (applyTurn), (2) Undo, (3) confirming a double-finish (Yes), (4) rejecting a double-finish (No), and (5) Rematch starting a new game.",
+      "reqIds": [
+        "REQ-22"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-on-entering-the-game-route-if-a-saved-game-exists-in-localstorage-show-a-blocking-prompt-asking-whether-to-resume-it-the-prompt-must-show-the-exact-user-facing-title-text-resume-and-two-actions-resume-and-discard",
+      "title": "On entering the /game route, if a saved game exists in localStorage, show a blocking prompt asking whether to resume it. The prompt must show the exact user-facing title text \"Resume?\" and two actions: \"Resume\" and \"Discard\".",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-saved-game-lifecycle-is-coherent-clear-the-persisted-saved-game-when-it-is-no-longer-resumable-or-no-longer-needed-and-keep-it-consistent-with-the-on-screen-state",
+      "title": "Ensure saved-game lifecycle is coherent: clear the persisted saved game when it is no longer resumable or no longer needed, and keep it consistent with the on-screen state.",
+      "reqIds": [
+        "REQ-24"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-an-offline-capable-pwa-service-worker-that-caches-the-app-shell-and-static-assets-so-that-after-the-first-successful-load-the-app-can-be-opened-and-used-without-internet-connectivity",
+      "title": "Implement an offline-capable PWA service worker that caches the app shell and static assets so that after the first successful load, the app can be opened and used without internet connectivity.",
+      "reqIds": [
+        "REQ-25"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-an-optional-voice-input-control-to-the-game-score-entry-ui-render-a-microphone-icon-button-inside-the-score-input-section-in-near-the-current-input-display-in-the-keypad-area-the-microphone-control-must-be-hidden-when-the-browser-does-not-support-the-web-speech-api-speechrecognition-interface",
+      "title": "Add an optional voice input control to the /game Score Entry UI: render a microphone icon button inside the score input section (in/near the current input display in the Keypad area). The microphone control must be hidden when the browser does not support the Web Speech API SpeechRecognition interface.",
+      "reqIds": [
+        "REQ-26"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-voice-capture-using-the-web-speech-api-speechrecognition-when-the-user-taps-the-microphone-icon-start-listening-and-capture-a-transcript-string-convert-the-transcript-into-a-proposed-scored-points-integer-for-dart-entry",
+      "title": "Implement voice capture using the Web Speech API (SpeechRecognition): when the user taps the microphone icon, start listening and capture a transcript string. Convert the transcript into a proposed scored-points integer for dart entry.",
+      "reqIds": [
+        "REQ-27"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-transcript-to-number-parser-that-supports-common-spoken-english-score-phrases-including-at-minimum-one-forty-one-hundred-and-forty-sixty-and-one-eighty-the-parser-should-be-reasonably-robust-for-typical-darts-score-utterances-and-return-an-integer-or-a-parse-failure",
+      "title": "Add a transcript-to-number parser that supports common spoken English score phrases, including at minimum: “one forty”, “one hundred and forty”, “sixty”, and “one eighty”. The parser should be reasonably robust for typical darts score utterances and return an integer or a parse failure.",
+      "reqIds": [
+        "REQ-28"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-after-speech-recognition-completes-show-a-confirmation-ui-that-displays-1-the-raw-transcript-and-2-the-proposed-number-and-requires-explicit-user-confirmation-before-applying-it-to-the-score-input-provide-two-actions-ok-to-accept-and-edit-to-reject-adjust",
+      "title": "After speech recognition completes, show a confirmation UI that displays (1) the raw transcript and (2) the proposed number, and requires explicit user confirmation before applying it to the score input. Provide two actions: “OK” to accept and “Edit” to reject/adjust.",
+      "reqIds": [
+        "REQ-29"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-voice-input-respects-existing-gameplay-locks-when-the-game-is-in-the-awaiting-double-finish-confirmation-phase-prevent-voice-capture-and-confirmation-from-changing-the-score-input-or-applying-scores-the-microphone-control-should-be-disabled-or-hidden-during-this-phase",
+      "title": "Ensure voice input respects existing gameplay locks: when the game is in the awaiting double-finish confirmation phase, prevent voice capture and confirmation from changing the score input or applying scores (the microphone control should be disabled or hidden during this phase).",
+      "reqIds": [
+        "REQ-30"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-score-entry-mode-switch-on-the-game-page-with-two-options-total-the-existing-numeric-keypad-flow-and-3-darts-new-per-dart-entry-flow",
+      "title": "Add a score-entry mode switch on the `/game` page with two options: “Total” (the existing numeric keypad flow) and “3 Darts” (new per-dart entry flow).",
+      "reqIds": [
+        "REQ-31"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-3-darts-score-entry-ui-on-game-show-three-slots-dart-1-dart-2-dart-3-where-each-slot-may-be-empty-provide-a-shot-selection-panel-with-1-multiplier-toggle-s-d-t-2-a-1-20-value-button-grid-and-3-two-dedicated-buttons-outer-bull-25-and-bull-50-selecting-a-shot-must-fill-the-first-empty-dart-slot-provide-actions-clear-dart-remove-the-most-recently-filled-dart-clear-all-and-submit-turn",
+      "title": "Implement the “3 Darts” score-entry UI on `/game`: show three slots (“Dart 1”, “Dart 2”, “Dart 3”) where each slot may be empty; provide a shot-selection panel with (1) multiplier toggle S / D / T, (2) a 1–20 value button grid, and (3) two dedicated buttons: “Outer Bull (25)” and “Bull (50)”. Selecting a shot must fill the first empty dart slot. Provide actions: “Clear Dart” (remove the most recently filled dart), “Clear All”, and “Submit Turn”.",
+      "reqIds": [
+        "REQ-32"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-extend-the-frontend-game-core-data-model-to-support-per-dart-turns-by-expanding-the-turn-type-to-include-darts-array-mult-s-d-t-ob-b-value-number-turntotal-number-and-optional-finishdart-string-e-g-d20-keep-existing-turn-snapshot-data-needed-for-undo-intact-and-update-any-affected-code-that-consumes-turn-fields",
+      "title": "Extend the frontend game core data model to support per-dart turns by expanding the Turn type to include: `darts: Array<{ mult: \"S\"|\"D\"|\"T\"|\"OB\"|\"B\", value: number }>`; `turnTotal: number`; and optional `finishDart?: string` (e.g., “D20”). Keep existing turn snapshot data needed for Undo intact and update any affected code that consumes Turn fields.",
+      "reqIds": [
+        "REQ-33"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-per-dart-turn-application-in-the-game-core-compute-each-dart-s-score-using-sx-x-dx-2x-tx-3x-outer-bull-25-bull-50-turn-total-is-the-sum-of-up-to-3-darts-missing-darts-count-as-0-apply-darts-sequentially-and-enforce-bust-rules-per-dart-if-remaining-becomes-0-at-any-dart-the-entire-turn-is-a-bust-if-double-out-is-on-and-remaining-would-become-1-at-any-point-the-entire-turn-is-a-bust-if-remaining-becomes-0-and-double-out-is-on-the-last-dart-must-be-a-double-d-or-bull-50-bull-counts-as-valid-double-out-or-else-the-entire-turn-is-a-bust-if-a-bust-occurs-mid-turn-the-entire-turn-is-annulled-and-play-advances-to-the-next-player-standard",
+      "title": "Implement per-dart turn application in the game core: compute each dart’s score using Sx=x, Dx=2x, Tx=3x, Outer Bull=25, Bull=50; turn total is the sum of up to 3 darts (missing darts count as 0). Apply darts sequentially and enforce bust rules per dart: if remaining becomes < 0 at any dart, the entire turn is a BUST; if Double Out is ON and remaining would become 1 at any point, the entire turn is a BUST; if remaining becomes 0 and Double Out is ON, the last dart must be a Double (D) or Bull (50) (Bull counts as valid double-out) or else the entire turn is a BUST. If a bust occurs mid-turn, the entire turn is annulled and play advances to the next player (standard).",
+      "reqIds": [
+        "REQ-34"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-the-interactive-double-out-confirmation-flow-was-it-a-double-finish-and-replace-it-with-deterministic-double-out-behavior-the-game-must-not-enter-an-awaiting-confirmation-phase-and-must-not-show-the-doublefinishconfirmmodal-for-any-scoring-flow",
+      "title": "Remove the interactive Double Out confirmation flow (“Was it a double finish?”) and replace it with deterministic Double Out behavior. The game must not enter an “awaiting-confirmation” phase and must not show the DoubleFinishConfirmModal for any scoring flow.",
+      "reqIds": [
+        "REQ-35"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-game-wiring-so-that-1-total-mode-continues-to-use-the-existing-keypad-component-and-submits-a-turn-via-the-existing-total-score-path-and-2-3-darts-mode-uses-the-new-per-dart-ui-and-submits-via-the-per-dart-game-core-function-ensure-localstorage-persistence-savegame-occurs-after-any-successful-submission-bust-submission-or-undo-and-that-the-saved-game-can-be-resumed-correctly",
+      "title": "Update `/game` wiring so that: (1) “Total” mode continues to use the existing Keypad component and submits a turn via the existing total-score path, and (2) “3 Darts” mode uses the new per-dart UI and submits via the per-dart game-core function. Ensure localStorage persistence (saveGame) occurs after any successful submission, bust submission, or undo, and that the saved game can be resumed correctly.",
+      "reqIds": [
+        "REQ-36"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-turn-history-storage-and-rendering-so-that-each-turn-preserves-the-dart-notation-examples-t20-20-d20-ob-b-and-the-turn-history-ui-displays-rows-formatted-like-140-t20-t20-d20-for-a-normal-scoring-turn-and-bust-t20-20-for-a-bust-turn-show-the-darts-that-were-entered-empty-darts-may-be-omitted-or-shown-as-placeholders-but-must-remain-readable-keep-the-existing-table-layout-and-continue-to-display-only-the-most-recent-5-turns",
+      "title": "Update turn history storage and rendering so that each turn preserves the dart notation (examples: “T20”, “20”, “D20”, “OB”, “B”) and the Turn History UI displays rows formatted like “-140 (T20 T20 D20)” for a normal scoring turn and “BUST (T20 20 …)” for a bust turn (show the darts that were entered; empty darts may be omitted or shown as placeholders but must remain readable). Keep the existing table layout and continue to display only the most recent 5 turns.",
+      "reqIds": [
+        "REQ-37"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-make-saved-game-loading-robust-across-the-turn-schema-change-loading-an-older-saved-game-without-darts-turntotal-must-not-crash-the-app-when-an-old-turn-record-is-encountered-gracefully-default-missing-fields-e-g-darts-turntotal-scoredpoints-so-that-resume-and-turn-history-rendering-continue-to-function",
+      "title": "Make saved-game loading robust across the Turn schema change: loading an older saved game (without `darts` / `turnTotal`) must not crash the app. When an old turn record is encountered, gracefully default missing fields (e.g., `darts: []`, `turnTotal: scoredPoints`) so that resume and Turn History rendering continue to function.",
+      "reqIds": [
+        "REQ-38"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-an-optional-checkout-helper-ui-toggle-on-the-game-page-when-enabled-and-the-current-player-s-remaining-score-is-170-show-1-3-suggested-checkout-routes-for-that-remaining-score-using-a-simple-rules-table-covering-common-popular-checkouts-it-does-not-need-to-be-complete-if-double-out-is-on-every-suggested-route-must-end-on-a-double-or-bull",
+      "title": "Add an optional “Checkout Helper” UI toggle on the /game page. When enabled and the current player’s remaining score is <= 170, show 1–3 suggested checkout routes for that remaining score using a simple rules table covering common/popular checkouts (it does not need to be complete). If Double Out is ON, every suggested route must end on a double or bull.",
+      "reqIds": [
+        "REQ-39"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-small-frontend-only-checkout-suggestion-engine-data-function-that-returns-up-to-3-suggested-checkout-routes-for-a-given-remaining-score-170-and-a-double-out-flag-the-engine-must-prioritize-common-popular-finishes-and-be-deterministic-same-input-same-suggestions",
+      "title": "Implement a small, frontend-only checkout suggestion engine (data + function) that returns up to 3 suggested checkout routes for a given remaining score (<=170) and a Double Out flag. The engine must prioritize common/popular finishes and be deterministic (same input => same suggestions).",
+      "reqIds": [
+        "REQ-40"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-per-game-player-statistics-computed-from-the-current-in-memory-game-state-and-compatible-with-the-persisted-saved-game-average-per-3-darts-avg-optional-first-9-average-number-of-180s-checkout-percentage-only-when-double-out-is-on-and-number-of-busts",
+      "title": "Add per-game player statistics computed from the current in-memory game state (and compatible with the persisted saved game): average per 3 darts (avg), optional first 9 average, number of 180s, checkout percentage (only when Double Out is ON), and number of busts.",
+      "reqIds": [
+        "REQ-41"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-dedicated-stats-screen-that-shows-a-table-of-all-players-and-the-computed-per-game-metrics-avg-optional-first-9-avg-180s-checkout-when-double-out-on-busts-make-it-accessible-via-a-stats-button-during-gameplay-and-after-game-over",
+      "title": "Create a dedicated “Stats” screen that shows a table of all players and the computed per-game metrics (avg, optional first 9 avg, 180s, checkout % when Double Out ON, busts). Make it accessible via a “Stats” button during gameplay and after Game Over.",
+      "reqIds": [
+        "REQ-42"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-wire-the-stats-screen-to-the-existing-localstorage-game-persistence-so-that-the-stats-screen-can-display-stats-for-the-current-game-both-during-play-and-after-game-over-including-when-navigated-to-directly-after-reload",
+      "title": "Wire the Stats screen to the existing localStorage game persistence so that the Stats screen can display stats for the current game both during play and after Game Over (including when navigated to directly after reload).",
+      "reqIds": [
+        "REQ-43"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-persisted-cameras-configuration-up-to-3-camera-slots-stored-in-localstorage-supporting-per-slot-source-type-selection-webcam-via-getusermedia-or-hls-url-e-g-https-stream-m3u8",
+      "title": "Add a persisted Cameras configuration (up to 3 camera slots) stored in localStorage, supporting per-slot source type selection: Webcam (via getUserMedia) or HLS URL (e.g., https://.../stream.m3u8).",
+      "reqIds": [
+        "REQ-44"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-an-hls-test-action-for-each-hls-camera-slot-that-validates-the-provided-hls-url-and-shows-an-in-ui-success-failure-result-in-english-without-crashing-the-app",
+      "title": "Implement an HLS “Test” action for each HLS camera slot that validates the provided HLS URL and shows an in-UI success/failure result in English without crashing the app.",
+      "reqIds": [
+        "REQ-45"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-cameras-panel-to-the-game-screen-that-renders-up-to-3-live-previews-based-on-the-saved-camera-configuration-with-responsive-layouts-for-1-2-and-3-cameras",
+      "title": "Add a Cameras panel to the /game screen that renders up to 3 live previews based on the saved camera configuration, with responsive layouts for 1, 2, and 3 cameras.",
+      "reqIds": [
+        "REQ-46"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-per-preview-controls-in-the-game-camera-panel-mute-pause-preview-only-swap-order-and-fullscreen-for-a-selected-preview",
+      "title": "Add per-preview controls in the /game camera panel: mute, pause (preview-only), swap order, and fullscreen for a selected preview.",
+      "reqIds": [
+        "REQ-47"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-webcam-preview-support-using-getusermedia-including-permission-handling-and-a-clear-english-error-state-when-permissions-are-denied-or-no-device-is-available",
+      "title": "Implement Webcam preview support using getUserMedia, including permission handling and a clear English error state when permissions are denied or no device is available.",
+      "reqIds": [
+        "REQ-48"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-hls-preview-support-for-configured-hls-urls-using-an-in-browser-approach-native-hls-where-available-otherwise-a-js-based-hls-playback-solution-without-requiring-any-backend-proxy-in-this-mvp",
+      "title": "Implement HLS preview support for configured HLS URLs using an in-browser approach (native HLS where available; otherwise a JS-based HLS playback solution), without requiring any backend proxy in this MVP.",
+      "reqIds": [
+        "REQ-49"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-review-action-next-to-the-turn-history-section-on-game-that-opens-a-modal-for-reviewing-the-most-recent-turn-including-camera-thumbnails-and-last-turn-details",
+      "title": "Add a “Review” action next to the Turn History section on /game that opens a modal for reviewing the most recent turn, including camera thumbnails and last-turn details.",
+      "reqIds": [
+        "REQ-50"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-edit-turn-for-the-last-recorded-turn-allowing-edits-appropriate-to-how-the-turn-was-entered-total-mode-vs-3-darts-mode-using-english-ui-text",
+      "title": "Implement “Edit turn” for the last recorded turn, allowing edits appropriate to how the turn was entered (Total mode vs 3 Darts mode), using English UI text.",
+      "reqIds": [
+        "REQ-51"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-after-saving-an-edited-last-turn-recompute-replay-the-game-state-deterministically-from-the-start-of-the-game-using-the-game-settings-and-the-turn-list-with-the-edited-last-turn-applied-ensuring-player-remaining-values-currentplayerindex-game-phase-in-progress-game-over-winner-and-turn-history-are-all-consistent",
+      "title": "After saving an edited last turn, recompute (“replay”) the game state deterministically from the start of the game using the game settings and the turn list with the edited last turn applied, ensuring player remaining values, currentPlayerIndex, game phase (in-progress/game-over), winner, and Turn History are all consistent.",
+      "reqIds": [
+        "REQ-52"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-extend-the-frontend-game-data-model-and-persistence-to-include-a-shotevent-log-and-generate-shotevents-for-manual-and-voice-inputs-as-confirmed-events-linked-to-the-created-edited-turn",
+      "title": "Extend the frontend game data model and persistence to include a ShotEvent log, and generate ShotEvents for manual and voice inputs as “confirmed” events linked to the created/edited turn.",
+      "reqIds": [
+        "REQ-53"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-design-and-add-a-frontend-scoringprovider-interface-with-start-stop-and-onproposal-callback-that-emits-proposed-shotevents-implement-an-mvp-stub-provider-that-emits-nothing-but-can-be-wired-into-the-ui-later-without-refactoring-the-core-data-structures",
+      "title": "Design and add a frontend ScoringProvider interface with start(), stop(), and onProposal(callback) that emits proposed ShotEvents; implement an MVP stub provider that emits nothing but can be wired into the UI later without refactoring the core data structures.",
+      "reqIds": [
+        "REQ-54"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -232,6 +497,294 @@
       "id": "AR-8",
       "summary": "Add end-of-leg/win handling: when remaining reaches 0 declare Game Over; if Double Out is ON and remaining reaches 0 prompt \"Was it a double finish?\" (YES ends game, NO treats as bust/undo turn). Provide Game Over screen showing winner + number of turns, with actions Rematch (same settings) and New Game (back to Start).",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Add game persistence: save currentGame state to localStorage after every turn; on /game load if a saved game exists prompt \"Resume?\" with Resume / Discard actions",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Improve PWA for offline-first: add/verify manifest and implement a service worker with caching so the app works without internet after first load",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Add voice input mode on /game using Web Speech API (SpeechRecognition): show mic icon in score input; transcribe and parse spoken English numbers (e.g., “one forty”, “one hundred and forty”, “sixty”, “one eighty”) into a proposed score; display transcript + proposed number with OK/Edit confirmation; hide mic if browser unsupported",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Add a /game score-entry mode toggle: existing Total keypad vs new \"3 Darts\" per-dart entry (S/D/T + 1–20 grid + Outer Bull 25 + Bull 50), with 3 dart slots, Clear Dart/Clear All/Submit Turn; update game logic + Turn model to store darts list and compute bust/finish deterministically (Double Out requires last dart D or Bull) and show formatted history like “-140 (T20 T20 D20)” or “BUST (...)”",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Add optional Checkout Helper UI toggle: when a player's remaining <= 170, show 1–3 suggested checkout routes from a simple common-rules table; if Double Out is ON, suggestions must end on a double or bull",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Add per-game player statistics and a Stats screen: compute avg (per 3 darts), optional first 9 avg, count of 180s, checkout % (when Double Out ON), and bust count; add a \"Stats\" button available during the game and after Game Over showing a table of players + metrics",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Add Cameras settings (up to 3 slots) supporting Webcam (getUserMedia) and HLS URL with Test button; persist camera configuration in localStorage",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-16",
+      "summary": "Add /game video panel to display 1–3 camera previews with layouts (1 large, 2 grid, 3 grid), per-preview controls (mute, pause), swap order, and fullscreen for selected preview",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-17",
+      "summary": "Add Manual Review for last turn: 'Review' button near turn history opens modal with camera thumbnails + last turn details and actions Keep or Edit turn",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-18",
+      "summary": "Implement 'Edit last turn' for both Total and 3-Darts entry; after saving, recompute game state by replaying turns from the edited point to ensure correct remaining/current player/history",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-19",
+      "summary": "Add ShotEvent model (manual/voice/camera sources; proposed/confirmed/rejected; linking to turns) and persist it with the game state as foundation for future auto-scoring",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-20",
+      "summary": "Design ScoringProvider interface (start/stop/onProposal) and include a stub provider that emits no proposals in MVP, but keeps UI/data model ready for future auto-scoring proposals",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-21",
+      "summary": "Add backend foundation: separate FastAPI service scaffold with project structure (app/main.py, api routers, core config/auth stub/websocket manager, db SQLAlchemy models+session), GET /health -> {\"ok\": true}, CORS for frontend (localhost + production), .env config (DATABASE_URL, JWT_SECRET, etc.), and Dockerfile + docker-compose (backend + postgres); no game logic yet",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-22",
+      "summary": "Implement a minimal backend canister foundation in `backend/main.mo` (Motoko, single-actor) that exposes a healthcheck method equivalent to `GET /health -> {\"ok\": true}`.",
+      "reqIds": [
+        "REQ-55"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-23",
+      "summary": "Add an environment/configuration placeholder module/pattern appropriate for Internet Computer canisters (without using `.env` files) to represent settings like `DATABASE_URL` and `JWT_SECRET`, and ensure the app builds without requiring any real secrets.",
+      "reqIds": [
+        "REQ-56"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-24",
+      "summary": "Add backend-side stubs/placeholders for authentication and websocket management (as internal Motoko modules or types), without implementing any game logic.",
+      "reqIds": [
+        "REQ-57"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-25",
+      "summary": "Create a backend-side persistence stub that represents “DB connectivity” within Internet Computer constraints (no Postgres, no SQLAlchemy), using in-canister storage placeholders only, and ensure the canister remains functional without any external database.",
+      "reqIds": [
+        "REQ-58"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-26",
+      "summary": "Design and implement backend Postgres data model for Dart Scoring using SQLAlchemy + Alembic migrations: tables users (optional/guest-ready), rooms, games, players, turns, shot_events with specified columns and enums; add indexes on rooms.code, games.room_id, and (turns.game_id, turns.turn_index)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-27",
+      "summary": "Implement a backend data model in Motoko that mirrors the user-requested Postgres/SQLAlchemy schema for dart scoring: users, rooms, games, players, turns, and shot_events, including the specified fields and enum-like values. This must be implemented using in-canister storage (stable data structures) consistent with the Internet Computer single-actor backend constraint.",
+      "reqIds": [
+        "REQ-59"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-28",
+      "summary": "Add in-canister index structures that correspond to the requested SQL indexes: rooms.code, games.room_id, and (turns.game_id, turns.turn_index). These indexes must be maintained consistently when creating/updating/deleting the corresponding entities.",
+      "reqIds": [
+        "REQ-60"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-29",
+      "summary": "Replace the trap-only backend placeholder with a minimal, non-throwing healthcheck method on the Motoko actor so external tooling can confirm the backend canister is alive.",
+      "reqIds": [
+        "REQ-61"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-30",
+      "summary": "Provide backend CRUD/query stub methods (no frontend wiring required) for creating and reading the core entities (rooms, games, players, turns, shot_events) sufficient to validate that the schema and indexes work end-to-end within canister storage.",
+      "reqIds": [
+        "REQ-62"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-31",
+      "summary": "Update `backend/main.mo` to define a Motoko data model that mirrors the user-requested Postgres/SQLAlchemy schema for dart scoring, using in-canister storage only (no external database):\n- `users`: `id`, `email` (nullable), `name`, `created_at`\n- `rooms`: `id` (uuid), `code`, `name`, `created_at`\n- `games`: `id` (uuid), `room_id`, `mode` (301/501), `double_out` (bool), `status` (active/finished), `started_at`, `finished_at`, `winner_player_id` (nullable)\n- `players`: `id` (uuid), `game_id`, `name`, `seat_order` (int), `remaining` (int), `stats_json` (json)\n- `turns`: `id` (uuid), `game_id`, `player_id`, `turn_index` (int), `input_mode` (\"total\"|\"3darts\"), `scored_total` (int), `is_bust` (bool), `remaining_before` (int), `remaining_after` (int), `darts_json` (json), `created_at`\n- `shot_events`: `id` (uuid), `game_id`, `turn_id` (nullable), `timestamp`, `source` (\"manual\"|\"voice\"|\"camera\"), `status` (\"proposed\"|\"confirmed\"|\"rejected\"), `proposed_total` (nullable), `proposed_darts_json` (nullable), `confidence` (nullable), `camera_slot` (nullable)\n\nRepresent UUIDs as `Text` values (generated in-canister) and represent json/jsonb fields as `Text` (raw JSON string) to avoid adding a JSON library dependency. Keep types/variants for the enum-like fields (mode/status/input_mode/source/status).",
+      "reqIds": [
+        "REQ-63"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-32",
+      "summary": "Implement and maintain in-canister index structures corresponding to the requested SQL indexes:\n- Index rooms by `room.code`\n- Index games by `game.room_id`\n- Composite index turns by `(turns.game_id, turns.turn_index)`\n\nIndexes must be updated consistently whenever the corresponding entities are created (and when updates are added later, the implementation must keep indexes correct).",
+      "reqIds": [
+        "REQ-64"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-33",
+      "summary": "Replace the current backend healthcheck implementation with a minimal, non-throwing method that returns a structured value equivalent to `GET /health -> {\"ok\": true}`.\n\nThis method must not trap and must be callable without any prerequisites.",
+      "reqIds": [
+        "REQ-65"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-34",
+      "summary": "Provide backend CRUD/query stub methods (no frontend wiring required) sufficient to validate that the schema and indexes work end-to-end within canister storage:\n- Create + get for: rooms, games, players, turns, shot_events (and users as optional but prepared)\n- Queries demonstrating each requested index:\n  - Get room by `code`\n  - List games by `room_id`\n  - List turns by `(game_id, turn_index)`\n\nMethods should return clear trap messages only for truly invalid references (e.g., creating a game for a missing room) and should otherwise succeed without trapping (e.g., list methods return empty arrays when appropriate).",
+      "reqIds": [
+        "REQ-66"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-35",
+      "summary": "If the updated backend state introduces incompatible changes to existing stored state (e.g., changing stored map types or IDs), add/adjust `backend/migration.mo` per the project migration policy so upgrades do not brick the canister. The migration may reset state if no safe migration is feasible, but it must be explicit and deterministic.",
+      "reqIds": [
+        "REQ-67"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-36",
+      "summary": "Add FastAPI REST API (MVP) for rooms + games: POST /rooms (optional name, generate 6-char code), GET /rooms/{code} (room data + active game if exists), POST /rooms/{code}/games (mode 301/501, double_out, players[]; create game+players with remaining=mode), GET /games/{game_id} (snapshot: game, players, last N turns, last N shot_events), POST /games/{game_id}/finish (finish game with winner_player_id); include Pydantic validation and sensible error codes",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-37",
+      "summary": "Implement backend API methods on the Motoko actor that mirror the requested REST endpoints for Rooms: (1) create a room with an optional name and a generated 6-character code (POST /rooms), and (2) fetch a room by code returning the room data plus the currently active game for that room if one exists (GET /rooms/{code}).",
+      "reqIds": [
+        "REQ-68"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-38",
+      "summary": "Implement backend API methods on the Motoko actor that mirror the requested REST endpoints for Games: (1) create a new game in a room by room code with validated input (mode 301/501, double_out boolean, players array of names) and create players with remaining initialized to the mode (POST /rooms/{code}/games), and (2) fetch a full game snapshot by game_id that includes game, players, and the last N turns and last N shot_events (GET /games/{game_id}).",
+      "reqIds": [
+        "REQ-69"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-39",
+      "summary": "Implement a backend API method on the Motoko actor that mirrors finishing a game (POST /games/{game_id}/finish) by setting the game as finished/completed and recording winner_player_id, with validation that the winner belongs to the game.",
+      "reqIds": [
+        "REQ-70"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-40",
+      "summary": "Add explicit request/response DTO types and validation-style error handling for the new backend API methods, using a consistent Result-like response shape with machine-readable error codes and English error messages (replacing trap-based control flow for expected client errors).",
+      "reqIds": [
+        "REQ-71"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-41",
+      "summary": "Update/extend the backend in-canister data model and indexes in backend/main.mo as needed to support rooms (including optional name), games (mode, double_out, status, winner_player_id), players (name, remaining, seat/order), turns, and shot events required by the snapshot endpoint, while preserving and maintaining indexes for: room by code, games by room, and turns by (game_id, turn_index).",
+      "reqIds": [
+        "REQ-72"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-42",
+      "summary": "If backend state layout changes are incompatible with existing deployed canister state, add or adjust backend/migration.mo according to the project migration policy so upgrades do not brick the canister (explicitly resetting state is acceptable for MVP if documented and deterministic).",
+      "reqIds": [
+        "REQ-73"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-43",
+      "summary": "Implement backend game logic as source of truth: POST /games/{game_id}/turns (applyTurn for total or 3-darts input; compute scored_total, validate bust + double-out; persist turn; update player remaining; next player may be derived in snapshot), POST /games/{game_id}/undo (remove last turn and recompute remaining), PUT /turns/{turn_id} (edit turn and replay/recompute all subsequent turns); return updated game snapshot after each operation",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-44",
+      "summary": "Implement a backend API method equivalent to `POST /games/{game_id}/turns` that applies a new turn to a game (backend is the source of truth) and returns an updated game snapshot after the operation.",
+      "reqIds": [
+        "REQ-74"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-45",
+      "summary": "Implement backend scoring and rule enforcement for both input modes (\"total\" and \"3darts\"), including bust handling and deterministic double-out, with consistent stored fields on each created/updated turn.",
+      "reqIds": [
+        "REQ-75"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-46",
+      "summary": "Implement a backend API method equivalent to `POST /games/{game_id}/undo` that removes the most recent turn for the given game and returns an updated game snapshot.",
+      "reqIds": [
+        "REQ-76"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-47",
+      "summary": "Implement a backend API method equivalent to `PUT /turns/{turn_id}` that edits an existing turn (total or 3darts input) and deterministically replays/recomputes all subsequent turns from that point, returning an updated game snapshot.",
+      "reqIds": [
+        "REQ-77"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-48",
+      "summary": "Standardize backend responses for the new gameplay mutation methods (create turn, undo, edit) so they always return either (a) an updated snapshot or (b) a structured, non-trapping error with a machine-readable code and an English message.",
+      "reqIds": [
+        "REQ-78"
+      ],
       "status": "pending"
     }
   ],
