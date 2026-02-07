@@ -1,28 +1,6 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Document Google OAuth configuration keys, dev defaults, and override guidance",
-  "requirements": [
-    {
-      "id": "REQ-151",
-      "summary": "Update documentation to describe Google OAuth configuration keys, dev defaults, and how to set them for local and production without changing existing auth flows.",
-      "acceptanceCriteria": [
-        "Documentation is added/updated (README and/or existing configuration docs) to list: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_OAUTH_REDIRECT.",
-        "Docs include sensible dev defaults and explain how to override them for real Google OAuth credentials.",
-        "Docs include an explicit note that this change does not modify existing authentication settings or flows."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/docs/configuration.md",
-          "operation": "modify",
-          "description": "Add a new subsection under Backend Configuration documenting the four Google OAuth configuration keys (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_OAUTH_REDIRECT), including their purpose, sensible non-empty dev defaults, where developers should set/override them for local development vs production, and an explicit note that existing authentication settings/flows are unchanged."
-        },
-        {
-          "path": "frontend/docs/deployment.md",
-          "operation": "modify",
-          "description": "Extend local development and production deployment instructions to reference the Google OAuth configuration keys and point to the configuration documentation section, including a clear reminder that this configuration step does not alter existing authentication behavior."
-        }
-      ]
-    }
-  ]
+  "title": "Retry: Minimum Google OAuth security hardening (single-use state, 10 min TTL, safe linking rules, no token logging)",
+  "requirements": []
 }

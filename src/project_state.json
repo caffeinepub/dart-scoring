@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 59,
+  "projectStateVersion": 71,
   "summary": "Extend the Dart Scoring app backend with full user accounts and authentication: Users table with password hashing (bcrypt/argon2), JWT access/refresh tokens, refresh_tokens storage, and auth endpoints (/auth/register, /auth/login, /auth/refresh, /auth/logout, /me) protected via get_current_user() middleware/dependency. This adds an account-based auth layer in addition to the existing token-based MVP room/game protection.",
   "architectural_notes": [
     "Tech stack: Next.js + React + TypeScript; target is a PWA.",
@@ -694,6 +694,30 @@
       "title": "Document how to configure the four Google OAuth values for local development and production, including where and how a developer should set them, and list the dev defaults. Documentation must explicitly state that existing authentication settings are unchanged by this configuration step.",
       "reqIds": [
         "REQ-151"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-secondary-sign-in-option-on-the-login-page-a-button-labeled-exactly-continue-with-google-that-when-clicked-navigates-the-browser-to-the-backend-endpoint-auth-google-start-full-page-redirect",
+      "title": "Add a secondary sign-in option on the `/login` page: a button labeled exactly \"Continue with Google\" that, when clicked, navigates the browser to the backend endpoint `/auth/google/start` (full-page redirect).",
+      "reqIds": [
+        "REQ-168"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-frontend-route-page-that-serves-as-frontend-oauth-redirect-and-handles-the-google-oauth-return-by-reading-token-or-error-from-the-url-query-string-storing-the-token-using-the-same-session-mechanism-used-by-the-app-s-normal-login-then-redirecting-the-user-to-profile-or-the-app-s-dashboard-destination",
+      "title": "Implement a frontend route/page that serves as `FRONTEND_OAUTH_REDIRECT` and handles the Google OAuth return by reading `token` (or `error`) from the URL query string, storing the token using the same session mechanism used by the app’s normal login, then redirecting the user to `/profile` (or the app’s dashboard destination).",
+      "reqIds": [
+        "REQ-169"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-error-handling-for-the-google-oauth-redirect-page-for-a-missing-token-and-b-user-consent-denial-showing-clear-english-messages-and-a-recovery-action-back-to-login",
+      "title": "Add error handling for the Google OAuth redirect page for (a) missing token and (b) user consent denial, showing clear English messages and a recovery action back to `/login`.",
+      "reqIds": [
+        "REQ-170"
       ],
       "version": 1
     }
@@ -1458,6 +1482,190 @@
       "summary": "Update upgrade safety to account for any new stable configuration state introduced for Google OAuth, following the project’s conditional migration policy so canister upgrades do not brick existing deployments.",
       "reqIds": [
         "REQ-150"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-113",
+      "summary": "Add endpoint GET /auth/google/start that generates a one-time random state (TTL 10 min), persists it (DB or cache), and responds with a 302 redirect to Google Authorization Endpoint with scope `openid email profile` and params `client_id`, `redirect_uri`, `response_type=code`, `state`.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-114",
+      "summary": "Implement an HTTP GET endpoint at path `/auth/google/start` in the backend canister that returns an HTTP 302 redirect to the Google OAuth Authorization Endpoint.",
+      "reqIds": [
+        "REQ-152"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-115",
+      "summary": "On each call to `GET /auth/google/start`, generate a cryptographically strong random `state` value that is single-use and has a TTL of 10 minutes.",
+      "reqIds": [
+        "REQ-153"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-116",
+      "summary": "Persist generated OAuth `state` values server-side in canister storage (acting as a DB/cache) along with their expiration time, and ensure expired states are not considered valid after 10 minutes.",
+      "reqIds": [
+        "REQ-154"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-117",
+      "summary": "Ensure canister upgrades remain safe after introducing OAuth state persistence; if the stable state layout changes, add `backend/migration.mo` per the project migration policy (conditional), initializing any new state structures deterministically.",
+      "reqIds": [
+        "REQ-155"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-118",
+      "summary": "Implement Google OAuth callback flow: add GET /auth/google/callback?code=&state= that validates stored single-use state (must exist, not used, not expired), exchanges code at Google Token Endpoint, fetches user profile (sub, email, email_verified, name via id_token/userinfo), maps/links user (match existing by oauth_provider='google' + oauth_subject=sub; else if user exists by email AND email_verified=true then link Google to that user; else create new user with email + username derived from name/email and set oauth fields), then issue existing JWT access token and redirect to FRONTEND_OAUTH_REDIRECT?token=<JWT>",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-119",
+      "summary": "Add a backend HTTP GET endpoint at path `/auth/google/callback?code=&state=` that completes the Google OAuth callback flow by validating the `state`, exchanging the `code` for Google tokens via the Google Token Endpoint, fetching the Google user profile (`sub`, `email`, `email_verified`, `name` via `id_token` and/or Google UserInfo), mapping/linking or creating a user record per the specified rules, issuing the app’s existing JWT access token, and returning an HTTP redirect to `FRONTEND_OAUTH_REDIRECT?token=<JWT>`.",
+      "reqIds": [
+        "REQ-156"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-120",
+      "summary": "Extend backend OAuth state persistence so each stored OAuth `state` value can be validated as: exists, not expired (TTL 10 minutes), and not previously used; include deterministic cleanup of expired/used states to prevent unbounded growth.",
+      "reqIds": [
+        "REQ-157"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-121",
+      "summary": "Update the backend User linking behavior so that linking a Google identity to an existing user updates the user record (`oauth_provider`, `oauth_subject`, `email_verified`) and maintains the OAuth composite uniqueness index consistently.",
+      "reqIds": [
+        "REQ-158"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-122",
+      "summary": "Ensure the backend has/uses a single authoritative configuration source for `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and `FRONTEND_OAUTH_REDIRECT` for the callback flow, and do not expose `GOOGLE_CLIENT_SECRET` in any query response.",
+      "reqIds": [
+        "REQ-159"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-123",
+      "summary": "If implementing the callback flow requires incompatible stable-state changes (e.g., changing OAuth state storage schema or adding new stable fields), add a conditional `backend/migration.mo` and wire it per the project migration policy so canister upgrades do not brick existing deployments.",
+      "reqIds": [
+        "REQ-160"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-124",
+      "summary": "Implement a backend HTTP GET endpoint at path `/auth/google/callback?code=&state=` that completes the Google OAuth callback flow and responds with an HTTP 302 redirect to the configured frontend redirect URL.",
+      "reqIds": [
+        "REQ-161"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-125",
+      "summary": "Validate OAuth `state` in the callback: ensure the provided `state` exists in server-side storage, has not been used before, and has not expired based on TTL; then mark it as used as a single-use value.",
+      "reqIds": [
+        "REQ-162"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-126",
+      "summary": "Exchange the OAuth authorization `code` for tokens by sending a POST request to the Google Token Endpoint with `client_id`, `client_secret`, `code`, `grant_type=authorization_code`, and `redirect_uri`, then parse the response to extract `access_token` and (if present) `id_token`.",
+      "reqIds": [
+        "REQ-163"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-127",
+      "summary": "Fetch the authenticated user profile from the Google UserInfo endpoint using the `access_token` (do not rely on verifying `id_token` in this MVP): GET `https://openidconnect.googleapis.com/v1/userinfo` with `Authorization: Bearer <access_token>`, then extract at minimum `sub`, `email`, `email_verified`, and `name` (optionally `given_name`).",
+      "reqIds": [
+        "REQ-164"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-128",
+      "summary": "Map/link/create a user based on Google userinfo and existing backend user storage using these rules: (1) if a user exists with `(oauth_provider='google', oauth_subject=sub)` use that user; else (2) if a user exists with `email == userinfo.email` AND `userinfo.email_verified == true`, link Google identity to that user by setting `oauth_provider`, `oauth_subject`, and `email_verified`; else (3) create a new user with `email=userinfo.email`, `oauth_provider='google'`, `oauth_subject=sub`, `email_verified=userinfo.email_verified`, and a derived unique `username` (from `name` or the local-part of email; append a numeric suffix on collisions).",
+      "reqIds": [
+        "REQ-165"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-129",
+      "summary": "Issue an application access JWT for the mapped user using the same JWT format and signing behavior as the existing standard login flow (at minimum: `sub=user_id`, `exp=<expiry>`), then redirect to `FRONTEND_OAUTH_REDIRECT?token=<JWT>`.",
+      "reqIds": [
+        "REQ-166"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-130",
+      "summary": "Implement error redirect behavior for the callback: for any expected error (missing code/state, invalid/expired/used state, token exchange failure, userinfo failure, missing email, mapping conflict), return an HTTP 302 redirect to `FRONTEND_OAUTH_REDIRECT?error=<short_code>` using short, stable machine-readable error codes and log only those codes.",
+      "reqIds": [
+        "REQ-167"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-131",
+      "summary": "Frontend: add “Continue with Google” on /login that redirects to backend /auth/google/start; implement FRONTEND_OAUTH_REDIRECT handler page/route to read token (or error) from query, store token via the same session mechanism as normal login, then redirect to /profile (or dashboard) with English error handling for missing token / consent denied",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-132",
+      "summary": "Google OAuth security hardening (minimum): make OAuth state single-use (mark used/delete after use) with TTL 10 minutes; if Google email_verified is false then do not link to an existing account by email (only create new or block); never log access/refresh/OAuth tokens in logs",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-133",
+      "summary": "Implement a secure OAuth `state` lifecycle for the backend Google OAuth flow: each generated `state` must be single-use and must expire after 10 minutes (TTL). The backend must persist `state` values server-side, validate them in the callback (exists, not expired, not used), and then immediately mark them as used and/or remove them so they cannot be replayed.",
+      "reqIds": [
+        "REQ-171"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-134",
+      "summary": "Enforce Google account linking rules during Google OAuth user mapping: if Google `email_verified` is `false`, the backend must NOT link the Google identity to an existing user by matching email. In that case, the backend must follow the project’s intended behavior (create a new user or block), but it must not attach Google OAuth fields to an existing account based on unverified email.",
+      "reqIds": [
+        "REQ-172"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-135",
+      "summary": "Ensure tokens and other sensitive OAuth secrets are never written to logs in the backend Google OAuth flow. This includes (at minimum) OAuth authorization codes, `access_token`, `refresh_token`, `id_token`, and any application-issued tokens; log only short, stable error codes when needed.",
+      "reqIds": [
+        "REQ-173"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-136",
+      "summary": "Maintain upgrade safety for any new/changed backend persisted state introduced by the OAuth hardening (e.g., OAuth state storage shape). If stable memory layout changes are required, add a conditional `backend/migration.mo` and wire it according to the project migration policy so canister upgrades do not brick existing deployments.",
+      "reqIds": [
+        "REQ-174"
       ],
       "status": "pending"
     }

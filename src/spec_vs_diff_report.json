@@ -1,30 +1,37 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T15:11:36.506Z",
-  "summary": "The diff adds some Google OAuth-related documentation and partial backend config scaffolding, but it does not clearly implement the exact required configuration keys (including the secret), does not show a safe query method implementation, and does not demonstrate upgrade/migration handling for any new stable config state. Additionally, the diff includes several unrelated frontend and backend changes not requested by the BuildRequest.",
+  "generatedAt": "2026-02-07T16:06:47.380Z",
+  "summary": "The diff shows only partial scaffolding for OAuth state storage (new `OAuthStateValue` type and an in-memory `oauthStates` map) and an unrelated update to `project_state.json`. There is no visible implementation of the required single-use + 10-minute TTL state lifecycle, callback validation, deterministic cleanup, email_verified-based linking rules, token-safe logging changes, or any upgrade/migration wiring for persisted state changes.",
   "missing_requirements": [
     {
-      "id": "REQ-148",
-      "requirement": "Add backend configuration plumbing for Google OAuth using exact keys GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_OAUTH_REDIRECT, with a single authoritative config record and sensible non-empty dev defaults.",
-      "reason": "The backend shows a GoogleOAuthConfig record, but its fields are `clientId`, `redirectUri`, and `frontendOAuthRedirect` (not the exact key names), and it does not include any representation of `GOOGLE_CLIENT_SECRET` in the authoritative config object shown. Therefore the required four keys (with exact names) and secret plumbing are not evidenced in the diff summary.",
+      "id": "REQ-171",
+      "requirement": "Implement a secure OAuth `state` lifecycle (server-side persistence, 10 min TTL, single-use, callback validation, deterministic cleanup).",
+      "reason": "The diff only shows an `OAuthStateValue` record type and `oauthStates = Map.empty<Text, OAuthStateValue>()`, but no evidence of (1) random state generation, (2) persistence with expiration set to exactly 10 minutes, (3) callback validation rejecting missing/expired/used states, (4) marking/removing state on success, or (5) deterministic cleanup on each start/callback.",
       "evidence": [
         "backend/main.mo"
       ]
     },
     {
-      "id": "REQ-149",
-      "requirement": "Expose a backend query method returning a safe Google OAuth config shape (must not return GOOGLE_CLIENT_SECRET).",
-      "reason": "The documentation references a `getGoogleOAuthConfig()` query method, but the backend diff excerpt does not show any query method implementation. Because the backend file is truncated, there is insufficient evidence that the method exists and returns only the allowed fields.",
+      "id": "REQ-172",
+      "requirement": "Enforce Google account linking rules: do not link by email when `email_verified` is false; preserve uniqueness for (oauth_provider, oauth_subject).",
+      "reason": "The diff does not show any Google userinfo handling, any branching on `email_verified`, or any linking logic enforcing the stated constraints. The presence of `email_verified : Bool` on `User` alone is not evidence of the required behavior.",
       "evidence": [
-        "backend/main.mo",
-        "frontend/docs/configuration.md"
+        "backend/main.mo"
       ]
     },
     {
-      "id": "REQ-150",
-      "requirement": "Update upgrade safety/migrations for any new stable configuration state introduced for Google OAuth (update backend/migration.mo if stable state layout changes).",
-      "reason": "No changes to `backend/migration.mo` are shown, and the backend diff excerpt does not show stable-state additions for Google OAuth config nor any preupgrade/postupgrade handling. The comment mentions a “conditional migration” but there is no evidenced migration implementation in the diff summary.",
+      "id": "REQ-173",
+      "requirement": "Ensure tokens/secrets are never written to logs in Google OAuth start/callback; log only safe error codes.",
+      "reason": "No OAuth start/callback code paths or logging statements are shown being reviewed/changed; there is no evidence of removal/avoidance of logging of authorization codes/tokens or of replacing logs with non-sensitive error codes.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-174",
+      "requirement": "Maintain upgrade safety for any new/changed persisted state introduced by OAuth hardening; add conditional `backend/migration.mo` if stable layout changes are needed.",
+      "reason": "No `backend/migration.mo` was added, and the diff provides no evidence of stable-state layout changes being handled safely on upgrade (e.g., `preupgrade`/`postupgrade` updates or conditional migration initialization).",
       "evidence": [
         "backend/main.mo"
       ]
@@ -32,25 +39,16 @@
   ],
   "hallucinated_features": [
     {
-      "description": "Added/modified frontend routes and pages (/login, /register, /profile, /games/$id) and other substantial UI/game/PWA behavior changes unrelated to Google OAuth configuration documentation.",
-      "reason": "BuildRequest non-goals explicitly exclude adding new frontend UI for Google sign-in and only request documentation updates; the listed frontend changes go far beyond documentation and OAuth config plumbing.",
+      "description": "Project state updated to describe adding full user accounts/authentication with password hashing and JWT access/refresh tokens and related endpoints.",
+      "reason": "This functionality is not requested in REQ-171..REQ-174 (which focus narrowly on Google OAuth state lifecycle, linking rules, token-safe logging, and upgrade safety). The diff shows `project_state.json` summary describing JWT/password features, which appears out of scope for this BuildRequest.",
       "evidence": [
-        "frontend-file-summaries.txt"
-      ]
-    },
-    {
-      "description": "Backend OAuth linking-related changes (e.g., new OAuth uniqueness index and comments indicating a stable breaking change for “OAuth linking”).",
-      "reason": "BuildRequest explicitly says to not change existing authentication settings/flows and to only add Google OAuth configuration plumbing (not user linking). The diff excerpt shows an `oauthIndex` and a comment about conditional migration for OAuth linking.",
-      "evidence": [
-        "backend/main.mo"
+        "project_state.json"
       ]
     }
   ],
-  "confidence": 0.74,
+  "confidence": 0.62,
   "changed_files": [
     "backend/main.mo",
-    "frontend-file-summaries.txt",
-    "frontend/docs/configuration.md",
     "project_state.json"
   ]
 }

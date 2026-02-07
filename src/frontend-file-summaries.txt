@@ -1,5 +1,5 @@
 {
-  "frontend/src/App.tsx": "Main application component configuring TanStack Router with routes for all pages including new /login, /register, /profile, and /games/$id routes, all wrapped in the shared AppLayout.",
+  "frontend/src/App.tsx": "Main application component configuring TanStack Router with all routes including new /google/oauth-redirect route for OAuth callback handling, all wrapped in the shared AppLayout.",
   "frontend/src/layouts/AppLayout.tsx": "Shared layout component rendering header with navigation to /profile (instead of /account) and /login for sign-in, outlet for page content, footer, and service worker registration for PWA.",
   "frontend/src/pages/StartGamePage.tsx": "Start Game page with local game configuration and multi-device room flow supporting both account-based (owner) and no-account (token) room creation modes, with conditional token storage and role selection navigation.",
   "frontend/src/pages/GamePage.tsx": "Game screen managing Game state with localStorage persistence, mode toggle between Total and 3 Darts score entry, voice input integration, checkout helper toggle with live suggestions panel, Stats button navigation, and realtime game snapshot integration via useGameRealtime hook that maps canonical snapshot structure (game/players/last_turns) to local Game state with proper type conversions for player indices and updates UI when connected to game channel.",
@@ -49,11 +49,14 @@
   "frontend/src/pages/GameHistoryPage.tsx": "Game history page with Mode, From, and To filters, paginated game list with navigation to /games/$id for details, and English empty states.",
   "frontend/src/hooks/useUserStats.ts": "Custom React Query hooks for fetching user statistics from the backend, including useMyStats for the current user and useUserStats for any user by ID.",
   "frontend/src/hooks/usePlayerGameStats.ts": "Custom React Query hooks for fetching per-game player statistics from the backend, including usePlayerGameStatsByGame for a specific game and usePlayerGameStatsByUser for all games a user participated in.",
-  "frontend/src/hooks/useSession.ts": "Centralized session/auth abstraction wrapping Internet Identity with in-memory credential storage and documented future support for httpOnly refresh-token cookies and background token refresh.",
+  "frontend/src/hooks/useSession.ts": "Centralized session/auth abstraction wrapping Internet Identity and in-memory OAuth token storage, exposing setOAuthToken method and ensuring signOut clears both II and OAuth credentials.",
   "frontend/src/hooks/useMyProfile.ts": "React Query hook to fetch the current user's profile via getMyProfile backend method, returning null when no profile exists (not an error state).",
   "frontend/src/hooks/useGameDetails.ts": "React Query hook to fetch game metadata for a specific game ID using the backend getGame method.",
-  "frontend/src/pages/LoginPage.tsx": "Dedicated login page with Internet Identity sign-in action, automatic redirect to /profile when authenticated, and English-only UI text.",
+  "frontend/src/pages/LoginPage.tsx": "Login page with Internet Identity sign-in button and new \"Continue with Google\" button that performs full-page redirect to /auth/google/start, with automatic redirect to /profile when authenticated.",
   "frontend/src/pages/RegisterPage.tsx": "Registration page for authenticated users without profiles, collecting username (required) and email (optional), calling actor.register and navigating to /profile on success.",
   "frontend/src/pages/ProfilePage.tsx": "Profile page displaying current user's username, email, and aggregated stats with sign-out action, guiding users to /register when profile is missing and to /login when not authenticated.",
-  "frontend/src/pages/GameDetailsPage.tsx": "Game details page showing game metadata and paginated turns list via useGameTurns, with English error states for invalid IDs and a note that charts/heatmaps are deferred."
+  "frontend/src/pages/GameDetailsPage.tsx": "Game details page showing game metadata and paginated turns list via useGameTurns, with English error states for invalid IDs and a note that charts/heatmaps are deferred.",
+  "frontend/src/hooks/useOAuthTokenSession.tsx": "In-memory-only OAuth token session provider that stores Google access tokens without persisting to localStorage, exposing setter/clearer functions for token management.",
+  "frontend/src/pages/GoogleOAuthRedirectPage.tsx": "OAuth redirect landing page at /google/oauth-redirect that reads token/error from query params, stores token in-memory via useSession, immediately removes sensitive params from URL for security, and redirects to /profile with comprehensive error handling for missing tokens, consent denial, and invalid tokens.",
+  "frontend/src/main.tsx": "Application entry point wrapping the app with QueryClientProvider, InternetIdentityProvider, and new OAuthTokenSessionProvider for in-memory OAuth token management."
 }

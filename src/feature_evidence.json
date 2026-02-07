@@ -1,24 +1,4 @@
 {
   "kind": "feature_evidence_report",
-  "features": [
-    {
-      "featureId": "feature-document-how-to-configure-the-four-google-oauth-values-for-local-development-and-production-including-where-and-how-a-developer-should-set-them-and-list-the-dev-defaults-documentation-must-explicitly-state-that-existing-authentication-settings-are-unchanged-by-this-configuration-step",
-      "featureTitle": "Document how to configure the four Google OAuth values for local development and production, including where and how a developer should set them, and list the dev defaults. Documentation must explicitly state that existing authentication settings are unchanged by this configuration step.",
-      "files": [
-        "frontend/docs/configuration.md"
-      ],
-      "components": [
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "authorization@4.0.0"
-      ],
-      "testIds": [
-        "REQ-151"
-      ],
-      "confidence": "high"
-    }
-  ]
+  "features": []
 }

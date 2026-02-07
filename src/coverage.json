@@ -1,47 +1,42 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T15:11:36.511Z",
+  "generatedAt": "2026-02-07T16:06:47.385Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 4,
-    "implemented": 1,
+    "implemented": 0,
     "items": [
       {
-        "id": "REQ-148",
-        "summary": "Add backend configuration plumbing for Google OAuth using the following configuration keys (names must match exactly): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_OAUTH_REDIRECT. The backend must have a single authoritative configuration object/record for these values, and it must be safe to run in local development without any secrets by using sensible non-empty defaults.",
+        "id": "REQ-171",
+        "summary": "Implement a secure OAuth `state` lifecycle for the backend Google OAuth flow: each generated `state` must be single-use and must expire after 10 minutes (TTL). The backend must persist `state` values server-side, validate them in the callback (exists, not expired, not used), and then immediately mark them as used and/or remove them so they cannot be replayed.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-149",
-        "summary": "Expose a backend query method to retrieve the current Google OAuth configuration in a safe shape suitable for frontend usage, ensuring that secrets are not leaked (GOOGLE_CLIENT_SECRET must not be returned).",
+        "id": "REQ-172",
+        "summary": "Enforce Google account linking rules during Google OAuth user mapping: if Google `email_verified` is `false`, the backend must NOT link the Google identity to an existing user by matching email. In that case, the backend must follow the project’s intended behavior (create a new user or block), but it must not attach Google OAuth fields to an existing account based on unverified email.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-150",
-        "summary": "Update upgrade safety to account for any new stable configuration state introduced for Google OAuth, following the project’s conditional migration policy so canister upgrades do not brick existing deployments.",
+        "id": "REQ-173",
+        "summary": "Ensure tokens and other sensitive OAuth secrets are never written to logs in the backend Google OAuth flow. This includes (at minimum) OAuth authorization codes, `access_token`, `refresh_token`, `id_token`, and any application-issued tokens; log only short, stable error codes when needed.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-151",
-        "summary": "Document how to configure the four Google OAuth values for local development and production, including where and how a developer should set them, and list the dev defaults. Documentation must explicitly state that existing authentication settings are unchanged by this configuration step.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/docs/configuration.md",
-          "frontend/docs/deployment.md"
-        ],
-        "matchedFiles": [
-          "frontend/docs/configuration.md"
-        ]
+        "id": "REQ-174",
+        "summary": "Maintain upgrade safety for any new/changed backend persisted state introduced by the OAuth hardening (e.g., OAuth state storage shape). If stable memory layout changes are required, add a conditional `backend/migration.mo` and wire it according to the project migration policy so canister upgrades do not brick existing deployments.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       }
     ]
   },
@@ -49,9 +44,7 @@
     "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
-    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/docs/configuration.md",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
     "frontend/src/declarations/backend.did.d.ts",
