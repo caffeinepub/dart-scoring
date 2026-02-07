@@ -36,8 +36,8 @@ export interface GameWithStatistics {
 }
 export interface GoogleOAuthConfig {
   'clientId' : string,
-  'redirectUri' : string,
-  'frontendOAuthRedirect' : string,
+  'frontendOAuthRedirectPath' : string,
+  'redirectPath' : string,
 }
 export interface HealthCheck {
   'name' : string,
@@ -157,6 +157,7 @@ export interface _SERVICE {
   'getGame' : ActorMethod<[bigint], [] | [Game]>,
   'getGamesByRoom' : ActorMethod<[bigint], Array<Game>>,
   'getGoogleOAuthConfig' : ActorMethod<[], GoogleOAuthConfig>,
+  'getGoogleOAuthStartUrl' : ActorMethod<[], string>,
   'getHealthStatus' : ActorMethod<[], HealthStatus>,
   'getMyProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getMyStats' : ActorMethod<[], [] | [UserStats]>,

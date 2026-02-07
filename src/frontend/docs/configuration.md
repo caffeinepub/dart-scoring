@@ -41,42 +41,29 @@ The frontend automatically resolves backend canister connection details through 
 
 For custom IC hosts or testing, you can modify the `createActorWithConfig` function in `frontend/src/config.ts` after generation.
 
-## Game Snapshot Contract
+#### Same-Origin API Architecture
 
-For multi-device rendering and realtime synchronization, the application uses a canonical **Game Snapshot** contract. See [Game Snapshot Contract](./game-snapshot-contract.md) for the complete specification.
+**Location:** All backend endpoints are served under `/api/*` on the same origin
 
-**Key Points:**
+The application uses a same-origin architecture where all backend API endpoints (including Google OAuth) are accessible at `/api/*` paths on the same domain as the frontend. This eliminates the need for separate backend domain configuration.
 
-- Backend methods return snapshots with top-level keys: `game`, `players`, `last_turns`, `shot_events_last`
-- Realtime events deliver `{ type: "GAME_SNAPSHOT", payload: <snapshot> }` using the same contract
-- Frontend UI renders from snapshots without additional requests
+**Key Endpoints:**
 
-## Backend Configuration
+| Endpoint | Description | Expected Response |
+|----------|-------------|-------------------|
+| `/api/health` | Health check endpoint | HTTP 200 with "OK" status |
+| `/api/auth/google/start` | Google OAuth initiation | HTTP 302/303 redirect to Google |
+| `/api/auth/google/callback` | Google OAuth callback | Processes OAuth code and redirects |
 
-The backend canister is a single-actor Motoko service with no external dependencies. All state is stored in stable memory.
+**Behavior:**
 
-### Google OAuth Configuration
+- **Google Sign-In:** Clicking "Continue with Google" on the login page performs a full-page redirect to `/api/auth/google/start`, initiating the Google OAuth flow
+- **No External Configuration Required:** The frontend automatically uses same-origin `/api` paths for all backend communication
+- **Development Proxy:** In local development, Vite proxies `/api/*` requests to the local dfx replica (configured in `vite.config.ts`)
 
-**⚠️ Note:** This configuration adds Google OAuth plumbing but **does not change existing authentication settings or flows**. Internet Identity authentication remains the primary authentication method.
+**How It Works:**
 
-The backend stores Google OAuth configuration values that can be queried by the frontend for OAuth flow initialization. These values are configured in the backend canister's stable state.
+##### Local Development
 
-#### Configuration Keys
-
-| Key | Description | Dev Default | Production |
-|-----|-------------|-------------|------------|
-| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Client ID | `default-client-id` | Set via Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 Client Secret (backend only) | `default-client-secret` | Set via Google Cloud Console |
-| `GOOGLE_REDIRECT_URI` | Backend OAuth callback endpoint | `http://localhost:8080/google/oauth-callback` | `https://yourdomain.com/google/oauth-callback` |
-| `FRONTEND_OAUTH_REDIRECT` | Frontend redirect after OAuth flow | `http://localhost:8080/google/oauth-redirect` | `https://yourdomain.com/google/oauth-redirect` |
-
-#### Security Notes
-
-- **GOOGLE_CLIENT_SECRET** is stored in the backend and **never exposed** via query methods
-- Only `GOOGLE_CLIENT_ID`, `GOOGLE_REDIRECT_URI`, and `FRONTEND_OAUTH_REDIRECT` are returned by the `getGoogleOAuthConfig()` query method
-- The client secret is used exclusively for backend-to-Google token exchange
-
-#### Development Defaults
-
-For local development, the backend initializes with sensible non-empty defaults that allow the application to run without configuration:
+The Vite dev server (configured in `frontend/vite.config.ts`) automatically proxies `/api/*` requests to the local dfx replica:
 

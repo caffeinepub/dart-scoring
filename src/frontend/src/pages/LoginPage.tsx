@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LogIn, Loader2, User } from 'lucide-react';
 import { SiGoogle } from 'react-icons/si';
 import { useSession } from '../hooks/useSession';
+import BackendDebugPanel from '../components/dev/BackendDebugPanel';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -27,8 +28,8 @@ export default function LoginPage() {
   };
 
   const handleGoogleSignIn = () => {
-    // Full-page redirect to backend OAuth start endpoint
-    window.location.href = '/auth/google/start';
+    // Perform full-page redirect to same-origin /api/auth/google/start
+    window.location.href = "/api/auth/google/start";
   };
 
   if (isInitializing) {
@@ -61,7 +62,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto">
+    <div className="max-w-md mx-auto space-y-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -78,6 +79,7 @@ export default function LoginPage() {
               </AlertDescription>
             </Alert>
           )}
+
           <Button
             onClick={handleSignIn}
             disabled={isLoggingIn}
@@ -117,6 +119,9 @@ export default function LoginPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Dev-only Backend Debug Panel */}
+      {import.meta.env.DEV && <BackendDebugPanel />}
     </div>
   );
 }

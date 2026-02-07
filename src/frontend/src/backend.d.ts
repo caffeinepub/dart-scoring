@@ -64,8 +64,8 @@ export interface HealthCheck {
 }
 export interface GoogleOAuthConfig {
     clientId: string;
-    redirectUri: string;
-    frontendOAuthRedirect: string;
+    frontendOAuthRedirectPath: string;
+    redirectPath: string;
 }
 export interface HealthStatus {
     ok: boolean;
@@ -153,6 +153,7 @@ export interface backendInterface {
     getGame(gameId: bigint): Promise<Game | null>;
     getGamesByRoom(roomId: bigint): Promise<Array<Game>>;
     getGoogleOAuthConfig(): Promise<GoogleOAuthConfig>;
+    getGoogleOAuthStartUrl(): Promise<string>;
     getHealthStatus(): Promise<HealthStatus>;
     getMyProfile(): Promise<UserProfile | null>;
     getMyStats(): Promise<UserStats | null>;

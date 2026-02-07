@@ -1,7 +1,7 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T16:06:47.385Z",
+  "generatedAt": "2026-02-07T21:59:15.557Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
@@ -11,31 +11,44 @@
     "implemented": 0,
     "items": [
       {
-        "id": "REQ-171",
-        "summary": "Implement a secure OAuth `state` lifecycle for the backend Google OAuth flow: each generated `state` must be single-use and must expire after 10 minutes (TTL). The backend must persist `state` values server-side, validate them in the callback (exists, not expired, not used), and then immediately mark them as used and/or remove them so they cannot be replayed.",
-        "status": "unknown",
-        "plannedFiles": [],
+        "id": "REQ-203",
+        "summary": "Implement same-origin API route handler for `GET /api/health` so it returns HTTP 200 with JSON body exactly `{ \"ok\": true }` (no Not Found). Prefer implementing via Next.js App Router route handler at `app/api/health/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/health.ts`.",
+        "status": "missing",
+        "plannedFiles": [
+          "frontend/app/api/health/route.ts",
+          "frontend/pages/api/health.ts"
+        ],
         "matchedFiles": []
       },
       {
-        "id": "REQ-172",
-        "summary": "Enforce Google account linking rules during Google OAuth user mapping: if Google `email_verified` is `false`, the backend must NOT link the Google identity to an existing user by matching email. In that case, the backend must follow the project’s intended behavior (create a new user or block), but it must not attach Google OAuth fields to an existing account based on unverified email.",
-        "status": "unknown",
-        "plannedFiles": [],
+        "id": "REQ-204",
+        "summary": "Implement same-origin API route handler for `GET /api/auth/google/start` so it is not Not Found and responds with an HTTP redirect (302 is acceptable) to a placeholder URL for now. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/start/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/start.ts`.",
+        "status": "missing",
+        "plannedFiles": [
+          "frontend/app/api/auth/google/start/route.ts",
+          "frontend/pages/api/auth/google/start.ts"
+        ],
         "matchedFiles": []
       },
       {
-        "id": "REQ-173",
-        "summary": "Ensure tokens and other sensitive OAuth secrets are never written to logs in the backend Google OAuth flow. This includes (at minimum) OAuth authorization codes, `access_token`, `refresh_token`, `id_token`, and any application-issued tokens; log only short, stable error codes when needed.",
-        "status": "unknown",
-        "plannedFiles": [],
+        "id": "REQ-205",
+        "summary": "Implement same-origin API route handler for `GET /api/auth/google/callback` so it returns HTTP 200 with JSON indicating the callback was reached. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/callback/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/callback.ts`.",
+        "status": "missing",
+        "plannedFiles": [
+          "frontend/app/api/auth/google/callback/route.ts",
+          "frontend/pages/api/auth/google/callback.ts"
+        ],
         "matchedFiles": []
       },
       {
-        "id": "REQ-174",
-        "summary": "Maintain upgrade safety for any new/changed backend persisted state introduced by the OAuth hardening (e.g., OAuth state storage shape). If stable memory layout changes are required, add a conditional `backend/migration.mo` and wire it according to the project migration policy so canister upgrades do not brick existing deployments.",
-        "status": "unknown",
-        "plannedFiles": [],
+        "id": "REQ-206",
+        "summary": "Verify the project routing mode and place the API handlers accordingly: confirm whether the project is using Next.js App Router (`/app`) or Pages Router (`/pages`), and ensure exactly one correct set of handlers is present and used by the runtime so `/api/*` endpoints are reachable after deployment.",
+        "status": "missing",
+        "plannedFiles": [
+          "frontend/docs/deployment.md",
+          "frontend/app/api/health/route.ts",
+          "frontend/pages/api/health.ts"
+        ],
         "matchedFiles": []
       }
     ]
@@ -45,10 +58,6 @@
     "build-request.json",
     "feature_evidence.json",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

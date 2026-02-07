@@ -1,105 +1,96 @@
 {
   "kind": "build_request",
-  "title": "Retry: Minimum Google OAuth security hardening (single-use state, 10 min TTL, safe linking rules, no token logging)",
-  "priority": "normal",
+  "title": "Fix same-origin /api routes returning Not Found by adding minimal route handlers",
+  "priority": "high",
   "requirements": [
     {
-      "id": "REQ-171",
-      "text": "Implement a secure OAuth `state` lifecycle for the backend Google OAuth flow: each generated `state` must be single-use and must expire after 10 minutes (TTL). The backend must persist `state` values server-side, validate them in the callback (exists, not expired, not used), and then immediately mark them as used and/or remove them so they cannot be replayed.",
-      "target": "backend",
+      "id": "REQ-203",
+      "text": "Implement same-origin API route handler for `GET /api/health` so it returns HTTP 200 with JSON body exactly `{ \"ok\": true }` (no Not Found). Prefer implementing via Next.js App Router route handler at `app/api/health/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/health.ts`.",
+      "target": "unknown",
       "source": {
         "messageIds": [
-          "recent-messages-4"
+          "msg-6"
         ],
         "quotes": [
-          "„Dodaj zabezpieczenia:\nstate jednorazowy (po użyciu usuń/oznacz used)\nTTL 10 min\""
+          "Utwórz plik:\n   app/api/health/route.ts\n   który zwraca JSON 200:\n   { \"ok\": true }",
+          "Po wdrożeniu MUSI działać:\n   - GET /api/health => 200 JSON {ok:true}",
+          "Nie zmieniaj UI. Najpierw spraw, żeby /api/health działało."
         ]
       },
       "acceptanceCriteria": [
-        "Calling the backend Google OAuth start endpoint generates a new random `state` value that is persisted server-side with an expiration time exactly 10 minutes after creation.",
-        "In the callback flow, a `state` that is missing, expired, or already used is rejected with a non-success outcome (no user linking/creation is performed for invalid state).",
-        "After a successful callback validation, the `state` is immediately made unusable for any future callback attempts (deleted or marked `used = true` and treated as invalid).",
-        "Expired and/or used `state` records are cleaned up deterministically so storage cannot grow without bound (e.g., cleanup on each start/callback invocation)."
+        "Deploying the app makes `GET /api/health` respond with HTTP 200.",
+        "The response `Content-Type` is JSON, and the body is exactly `{ \"ok\": true }` (key name and boolean value).",
+        "`GET /api/health` is not a 404/Not Found under any environment (dev/prod)."
       ]
     },
     {
-      "id": "REQ-172",
-      "text": "Enforce Google account linking rules during Google OAuth user mapping: if Google `email_verified` is `false`, the backend must NOT link the Google identity to an existing user by matching email. In that case, the backend must follow the project’s intended behavior (create a new user or block), but it must not attach Google OAuth fields to an existing account based on unverified email.",
-      "target": "backend",
+      "id": "REQ-204",
+      "text": "Implement same-origin API route handler for `GET /api/auth/google/start` so it is not Not Found and responds with an HTTP redirect (302 is acceptable) to a placeholder URL for now. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/start/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/start.ts`.",
+      "target": "unknown",
       "source": {
         "messageIds": [
-          "recent-messages-4"
+          "msg-6"
         ],
         "quotes": [
-          "„jeśli email_verified od Google jest false → nie linkuj do istniejącego konta po email (tylko twórz nowe lub blokuj)\""
+          "Utwórz plik:\n   app/api/auth/google/start/route.ts\n   który na razie zwraca 302 redirect do placeholdera (może być Google URL później),\n   ale NIE może być Not Found.",
+          "Po wdrożeniu MUSI działać:\n   - GET /api/auth/google/start => nie Not Found (może redirect)"
         ]
       },
       "acceptanceCriteria": [
-        "When Google userinfo returns `email_verified = false` and an existing user has the same email, the backend does not set/update that existing user’s `(oauth_provider, oauth_subject)` based on email match.",
-        "When Google userinfo returns `email_verified = true`, the existing email-linking behavior (if implemented) may link by email as before (subject to the system’s existing uniqueness/index rules).",
-        "All cases continue to enforce uniqueness for `(oauth_provider, oauth_subject)` so that the same Google identity cannot be linked to multiple users."
+        "Deploying the app makes `GET /api/auth/google/start` respond with HTTP 302 (or another 3xx redirect) and a `Location` header.",
+        "`GET /api/auth/google/start` is not a 404/Not Found.",
+        "The route works under same-origin calls used by the existing frontend (`window.location.href = \"/api/auth/google/start\"`)."
       ]
     },
     {
-      "id": "REQ-173",
-      "text": "Ensure tokens and other sensitive OAuth secrets are never written to logs in the backend Google OAuth flow. This includes (at minimum) OAuth authorization codes, `access_token`, `refresh_token`, `id_token`, and any application-issued tokens; log only short, stable error codes when needed.",
-      "target": "backend",
+      "id": "REQ-205",
+      "text": "Implement same-origin API route handler for `GET /api/auth/google/callback` so it returns HTTP 200 with JSON indicating the callback was reached. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/callback/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/callback.ts`.",
+      "target": "unknown",
       "source": {
         "messageIds": [
-          "recent-messages-4"
+          "msg-6"
         ],
         "quotes": [
-          "„nie loguj tokenów w logach”"
+          "Utwórz plik:\n   app/api/auth/google/callback/route.ts\n   który zwraca JSON 200 z informacją \"callback reached\".",
+          "Po wdrożeniu MUSI działać:\n   - GET /api/auth/google/callback => 200"
         ]
       },
       "acceptanceCriteria": [
-        "Backend code paths for Google OAuth start/callback do not log token values, authorization codes, or raw Google responses that contain tokens.",
-        "If the backend logs OAuth-related failures, logs contain only non-sensitive information (e.g., a machine-readable error code) and do not include query parameters that may contain tokens/codes.",
-        "A code review pass is applied to the backend Google OAuth flow to remove/avoid any `Debug.print`/logging that could include sensitive values."
+        "Deploying the app makes `GET /api/auth/google/callback` respond with HTTP 200.",
+        "Response is JSON and includes an English message indicating the callback was reached (must include the phrase \"callback reached\").",
+        "`GET /api/auth/google/callback` is not a 404/Not Found."
       ]
     },
     {
-      "id": "REQ-174",
-      "text": "Maintain upgrade safety for any new/changed backend persisted state introduced by the OAuth hardening (e.g., OAuth state storage shape). If stable memory layout changes are required, add a conditional `backend/migration.mo` and wire it according to the project migration policy so canister upgrades do not brick existing deployments.",
-      "target": "backend",
+      "id": "REQ-206",
+      "text": "Verify the project routing mode and place the API handlers accordingly: confirm whether the project is using Next.js App Router (`/app`) or Pages Router (`/pages`), and ensure exactly one correct set of handlers is present and used by the runtime so `/api/*` endpoints are reachable after deployment.",
+      "target": "unknown",
       "source": {
         "messageIds": [
-          "recent-messages-4",
-          "recent-messages-6"
+          "msg-6"
         ],
         "quotes": [
-          "„Dodaj zabezpieczenia… state jednorazowy… TTL 10 min”",
-          "Sproboj raz jeszcze"
+          "Upewnij się, że projekt faktycznie używa folderu /app (App Router).\n   Jeśli projekt używa /pages router zamiast /app:\n   wtedy zrób odpowiedniki: ..."
         ]
       },
       "acceptanceCriteria": [
-        "If the implementation changes stable state layout, an explicit conditional migration is provided that initializes new OAuth-related state deterministically on upgrade.",
-        "Upgrading from the currently deployed version to the new version succeeds without trapping during `postupgrade` and leaves the canister in a usable state."
+        "After deployment, the three endpoints `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback` resolve to implemented handlers (no Not Found).",
+        "No duplicate/conflicting handler implementations cause ambiguity (only the router appropriate to the project structure is used at runtime)."
       ]
     }
   ],
   "constraints": [
-    "Backend must remain a single-actor Motoko canister; keep all logic in `backend/main.mo` and only introduce `backend/migration.mo` when required by stable-state changes.",
-    "Do not log OAuth tokens, application tokens, or other secrets in backend logs.",
-    "Use English for any user-facing text introduced as part of these changes."
+    "Do not change any UI/UX or frontend pages/components; only fix the server-side `/api/*` routing so it no longer returns Not Found.",
+    "Use English for any user-facing text returned by the API handlers (e.g., the callback JSON message).",
+    "Focus first on making `/api/health` work; ensure it is implemented and verified before relying on the Google routes."
   ],
   "nonGoals": [
-    "Add a new audit log feature for OAuth or state usage (not requested in this retry).",
-    "Introduce third-party auth providers beyond Google OAuth.",
-    "Refactor unrelated room/game logic outside what is necessary to implement the security hardening."
+    "Implementing the real Google OAuth flow (state handling, token exchange, user mapping) is out of scope for this fix; redirects can go to a placeholder URL.",
+    "Changing existing frontend Google sign-in behavior is out of scope; it should keep working against `/api/auth/google/start` once the endpoint exists.",
+    "Adding new UI diagnostics or modifying the existing Backend Debug Panel is out of scope."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
-  },
-  "userProfileUpdate": {
-    "goalsToAdd": [],
-    "goalsToRemove": [],
-    "preferencesToAdd": [],
-    "preferencesToRemove": [],
-    "miscToAdd": [],
-    "miscToRemove": [],
-    "fieldsToSet": {},
-    "fieldsToDelete": []
   }
 }

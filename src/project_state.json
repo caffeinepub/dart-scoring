@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 71,
-  "summary": "Extend the Dart Scoring app backend with full user accounts and authentication: Users table with password hashing (bcrypt/argon2), JWT access/refresh tokens, refresh_tokens storage, and auth endpoints (/auth/register, /auth/login, /auth/refresh, /auth/logout, /me) protected via get_current_user() middleware/dependency. This adds an account-based auth layer in addition to the existing token-based MVP room/game protection.",
+  "projectStateVersion": 87,
+  "summary": "Update architecture so the backend runs within the same \"Dart Scoring\" app under the `/api` path (no separate backend app/service or domain). All backend endpoints (rooms, auth, Google OAuth) must be exposed as `/api/...` (e.g. `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback`). Frontend Google login must redirect via `window.location.href = \"/api/auth/google/start\"`, and all references to `dart-scoring-backend.caffeine.xyz` must be removed. Post-deploy verification: `/api/health` returns OK and \"Continue with Google\" opens Google OAuth.",
   "architectural_notes": [
     "Tech stack: Next.js + React + TypeScript; target is a PWA.",
     "Initial routes/pages required: / (Start Game) and /game (Game Screen).",
@@ -14,8 +14,13 @@
     "Replace interactive Double Out confirmation with deterministic Double Out validation in game-core (no awaiting-confirmation state / no confirmation modal).",
     "Add a lightweight checkout-suggestion module/table for common finishes <= 170 (1–3 suggestions), respecting Double Out (must finish on D or Bull when enabled)."
   ],
-  "known_issues": [],
-  "isFixRequest": false,
+  "known_issues": [
+    "OAuth login frontend crash: components call useOAuthTokenSession but the app is not wrapped in OAuthTokenSessionProvider (or provider is too low in the tree), causing Sign In route to crash instead of rendering the login screen.",
+    "\"Continue with Google\" button incorrectly navigates to an in-app `/auth/google` route causing a Not Found page; it must full-page redirect to backend `/auth/google/start` using `NEXT_PUBLIC_BACKEND_URL`, and show \"Google login not configured\" if missing.",
+    "Architecture change required: backend must be available under same-app `/api/*` routes; frontend Google OAuth must redirect to `/api/auth/google/start` and all `dart-scoring-backend.caffeine.xyz` references must be removed; verify `/api/health` returns OK after deployment.",
+    "/api/* currently returns Not Found in production because Next.js route handlers for `/api/health` and Google OAuth endpoints are missing; must add minimal API handlers (App Router or Pages Router) and redeploy."
+  ],
+  "isFixRequest": true,
   "existing_features": [
     {
       "id": "feature-create-two-frontend-routes-pages-start-game-and-game-game-screen-with-working-navigation-between-them-e-g-a-primary-cta-on-that-navigates-to-game-and-a-back-affordance-on-game-that-returns-to",
@@ -718,6 +723,190 @@
       "title": "Add error handling for the Google OAuth redirect page for (a) missing token and (b) user consent denial, showing clear English messages and a recovery action back to `/login`.",
       "reqIds": [
         "REQ-170"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-wrap-the-entire-react-app-at-the-highest-possible-level-above-all-routes-pages-layouts-in-oauthtokensessionprovider-so-that-any-component-calling-useoauthtokensession-usesession-never-renders-outside-the-provider-because-frontend-src-main-tsx-is-immutable-implement-this-wrapping-in-a-non-immutable-root-such-as-frontend-src-app-tsx-by-wrapping-the-existing-routerprovider",
+      "title": "Wrap the entire React app (at the highest possible level above all routes/pages/layouts) in `<OAuthTokenSessionProvider>` so that any component calling `useOAuthTokenSession`/`useSession` never renders outside the provider. Because `frontend/src/main.tsx` is immutable, implement this wrapping in a non-immutable root such as `frontend/src/App.tsx` by wrapping the existing `<RouterProvider />`.",
+      "reqIds": [
+        "REQ-175"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-change-useoauthtokensession-so-it-never-throws-when-used-outside-a-provider-if-the-context-is-missing-return-a-safe-unauthenticated-null-session-value-e-g-googleaccesstoken-null-setgoogleaccesstoken-no-op-cleargoogleaccesstoken-no-op-instead-of-throwing-an-exception",
+      "title": "Change `useOAuthTokenSession` so it never throws when used outside a provider. If the context is missing, return a safe unauthenticated/null session value (e.g., `{ googleAccessToken: null, setGoogleAccessToken: no-op, clearGoogleAccessToken: no-op }`) instead of throwing an exception.",
+      "reqIds": [
+        "REQ-176"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-continue-with-google-action-on-the-login-page-so-clicking-it-performs-a-full-page-redirect-to-the-backend-oauth-start-endpoint-using-window-location-href-backend-base-url-auth-google-start-where-backend-base-url-is-read-from-the-environment-variable-next-public-backend-url-do-not-use-tanstack-router-navigation-link-or-any-in-app-routing-for-this-action",
+      "title": "Update the “Continue with Google” action on the `/login` page so clicking it performs a full-page redirect to the backend OAuth start endpoint using `window.location.href = BACKEND_BASE_URL + \"/auth/google/start\"`, where `BACKEND_BASE_URL` is read from the environment variable `NEXT_PUBLIC_BACKEND_URL`. Do not use TanStack Router navigation, `<Link>`, or any in-app routing for this action.",
+      "reqIds": [
+        "REQ-178"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-if-next-public-backend-url-is-missing-empty-at-runtime-prevent-any-redirect-and-instead-show-an-in-ui-message-google-login-not-configured-english-exact-text",
+      "title": "If `NEXT_PUBLIC_BACKEND_URL` is missing/empty at runtime, prevent any redirect and instead show an in-UI message: \"Google login not configured\" (English, exact text).",
+      "reqIds": [
+        "REQ-179"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-frontend-never-renders-an-in-app-route-page-at-auth-google-and-does-not-navigate-to-auth-google-for-google-sign-in",
+      "title": "Ensure the frontend never renders an in-app route/page at `/auth/google` (and does not navigate to `/auth/google` for Google sign-in).",
+      "reqIds": [
+        "REQ-180"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-document-the-new-frontend-environment-variable-next-public-backend-url-example-https-dart-scoring-backend-caffeine-xyz-in-frontend-docs-configuration-md-including-what-it-controls-google-oauth-backend-base-url-and-what-happens-when-it-is-not-set-shows-google-login-not-configured",
+      "title": "Document the new frontend environment variable `NEXT_PUBLIC_BACKEND_URL` (example: `https://dart-scoring-backend.caffeine.xyz`) in `frontend/docs/configuration.md`, including what it controls (Google OAuth backend base URL) and what happens when it is not set (shows \"Google login not configured\").",
+      "reqIds": [
+        "REQ-181"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-frontend-build-runtime-exposes-the-environment-variable-next-public-backend-url-so-that-import-meta-env-next-public-backend-url-is-populated-when-the-variable-is-set-during-build-deploy",
+      "title": "Ensure the frontend build/runtime exposes the environment variable `NEXT_PUBLIC_BACKEND_URL` so that `import.meta.env.NEXT_PUBLIC_BACKEND_URL` is populated when the variable is set during build/deploy.",
+      "reqIds": [
+        "REQ-182"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-on-the-login-page-ensure-clicking-the-button-labeled-exactly-continue-with-google-performs-a-full-page-redirect-using-window-location-href-next-public-backend-url-auth-google-start-with-safe-trimming-to-avoid-double-slashes-and-does-not-use-in-app-routing-for-this-action",
+      "title": "On the `/login` page, ensure clicking the button labeled exactly \"Continue with Google\" performs a full-page redirect using `window.location.href = NEXT_PUBLIC_BACKEND_URL + \"/auth/google/start\"` (with safe trimming to avoid double slashes), and does not use in-app routing for this action.",
+      "reqIds": [
+        "REQ-183"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-when-next-public-backend-url-is-configured-non-empty-the-login-page-must-not-show-the-user-facing-error-message-google-login-not-configured-and-must-attempt-the-redirect-to-the-backend-oauth-start-endpoint-when-it-is-missing-empty-prevent-redirect-and-show-the-exact-message-google-login-not-configured",
+      "title": "When `NEXT_PUBLIC_BACKEND_URL` is configured (non-empty), the login page must not show the user-facing error message \"Google login not configured\" and must attempt the redirect to the backend OAuth start endpoint; when it is missing/empty, prevent redirect and show the exact message \"Google login not configured\".",
+      "reqIds": [
+        "REQ-184"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-configuration-documentation-to-include-complete-copy-pastable-instructions-for-setting-next-public-backend-url-for-local-development-and-production-builds-the-same-backend-that-serves-auth-google-start",
+      "title": "Update frontend configuration documentation to include complete, copy-pastable instructions for setting `NEXT_PUBLIC_BACKEND_URL` for local development and production builds (the same backend that serves `/auth/google/start`).",
+      "reqIds": [
+        "REQ-185"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-single-frontend-configuration-module-create-frontend-src-lib-config-ts-that-exports-getbackendbaseurl-with-the-following-resolution-order-1-if-process-env-next-public-backend-url-exists-and-is-a-non-empty-string-return-that-value-2-otherwise-if-the-app-can-reach-backend-endpoints-on-the-same-origin-under-the-api-prefix-return-window-location-origin-api-3-otherwise-return-a-constant-backend-url-fallback-https-dart-scoring-backend-caffeine-xyz-getbackendbaseurl-must-return-a-non-empty-string-in-all-browser-runtime-cases-so-the-google-flow-never-treats-the-backend-as-not-configured",
+      "title": "Add a single frontend configuration module (create `frontend/src/lib/config.ts`) that exports `getBackendBaseUrl()` with the following resolution order:\n1) If `process.env.NEXT_PUBLIC_BACKEND_URL` exists and is a non-empty string, return that value.\n2) Otherwise, if the app can reach backend endpoints on the same origin under the `/api` prefix, return `window.location.origin + \"/api\"`.\n3) Otherwise, return a constant `BACKEND_URL_FALLBACK = \"https://dart-scoring-backend.caffeine.xyz\"`.\n\n`getBackendBaseUrl()` must return a non-empty string in all browser runtime cases (so the Google flow never treats the backend as “not configured”).",
+      "reqIds": [
+        "REQ-186"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-login-page-google-sign-in-button-continue-with-google-to-always-perform-a-full-page-redirect-using-window-location-href-getbackendbaseurl-auth-google-start-the-redirect-url-concatenation-must-be-safe-avoid-double-slashes-between-base-url-and-auth-google-start",
+      "title": "Update the `/login` page Google sign-in button (\"Continue with Google\") to always perform a full-page redirect using:\n`window.location.href = getBackendBaseUrl() + \"/auth/google/start\"`\n\nThe redirect URL concatenation must be safe (avoid double slashes between base URL and `/auth/google/start`).",
+      "reqIds": [
+        "REQ-187"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-disable-the-user-facing-google-login-not-configured-error-flow-on-the-login-page-when-getbackendbaseurl-returns-any-value-the-goal-is-that-clicking-continue-with-google-must-never-show-a-not-configured-message-and-must-always-attempt-the-redirect",
+      "title": "Remove/disable the user-facing \"Google login not configured\" error flow on the `/login` page when `getBackendBaseUrl()` returns any value. The goal is that clicking \"Continue with Google\" must never show a “not configured” message and must always attempt the redirect.",
+      "reqIds": [
+        "REQ-188"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-dev-debug-only-diagnostic-panel-titled-backend-debug-to-the-login-page-frontend-src-pages-loginpage-tsx-the-panel-must-be-rendered-only-in-development-debug-builds-e-g-import-meta-env-dev-true-and-must-not-appear-in-production-builds",
+      "title": "Add a dev/debug-only diagnostic panel titled \"Backend Debug\" to the `/login` page (`frontend/src/pages/LoginPage.tsx`). The panel must be rendered only in development/debug builds (e.g., `import.meta.env.DEV === true`) and must not appear in production builds.",
+      "reqIds": [
+        "REQ-189"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-backend-debug-panel-on-login-display-the-detected-backend-url-used-by-the-google-sign-in-button-by-resolving-it-through-the-existing-frontend-config-getbackendbaseurl-from-frontend-src-lib-config-ts-show-it-with-the-exact-label-format-detected-backend-url",
+      "title": "In the \"Backend Debug\" panel on `/login`, display the detected backend URL used by the Google sign-in button by resolving it through the existing frontend config (`getBackendBaseUrl()` from `frontend/src/lib/config.ts`). Show it with the exact label format: `Detected backend URL: <...>`.",
+      "reqIds": [
+        "REQ-190"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-backend-debug-panel-on-login-add-a-button-labeled-exactly-test-backend-that-performs-a-fetch-get-request-to-backendurl-health-use-safe-url-joining-and-displays-the-result-in-the-ui-no-alerts-it-must-show-ok-when-the-http-response-status-is-200-otherwise-show-failed-plus-a-short-error-description-suitable-for-display",
+      "title": "In the \"Backend Debug\" panel on `/login`, add a button labeled exactly \"Test backend\" that performs a `fetch` GET request to `<backendUrl>/health` (use safe URL joining) and displays the result in the UI (no alerts). It must show \"OK\" when the HTTP response status is 200; otherwise show \"FAILED\" plus a short error description suitable for display.",
+      "reqIds": [
+        "REQ-191"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-backend-debug-panel-on-login-add-a-second-test-button-labeled-exactly-test-google-start-that-checks-the-url-backendurl-auth-google-start-and-displays-whether-the-endpoint-returns-a-success-redirect-200-or-302-versus-404-the-result-must-be-shown-in-the-ui-no-alerts-and-must-not-crash-the-page-under-any-error-condition",
+      "title": "In the \"Backend Debug\" panel on `/login`, add a second test button labeled exactly \"Test Google start\" that checks the URL `<backendUrl>/auth/google/start` and displays whether the endpoint returns a success/redirect (200 or 302) versus 404. The result must be shown in the UI (no alerts) and must not crash the page under any error condition.",
+      "reqIds": [
+        "REQ-192"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-style-the-backend-debug-panel-as-a-small-simple-box-inside-the-login-page-below-the-existing-login-buttons-is-acceptable-using-existing-tailwind-shadcn-primitives-the-panel-must-keep-user-facing-text-in-english-and-must-not-affect-the-existing-login-flows",
+      "title": "Style the \"Backend Debug\" panel as a small, simple box inside the `/login` page (below the existing login buttons is acceptable), using existing Tailwind/Shadcn primitives. The panel must keep user-facing text in English and must not affect the existing login flows.",
+      "reqIds": [
+        "REQ-193"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-developer-facing-verification-note-in-existing-deployment-documentation-describing-how-to-verify-the-backend-is-running-and-how-to-confirm-get-auth-google-start-responds-with-a-redirect-http-302-303",
+      "title": "Add a developer-facing verification note in existing deployment documentation describing how to verify the backend is running and how to confirm `GET /auth/google/start` responds with a redirect (HTTP 302/303).",
+      "reqIds": [
+        "REQ-197"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-frontend-google-sign-in-flow-so-clicking-the-button-labeled-exactly-continue-with-google-performs-a-full-page-redirect-using-exactly-window-location-href-api-auth-google-start-no-environment-based-backend-base-url-resolution",
+      "title": "Update the frontend Google sign-in flow so clicking the button labeled exactly \"Continue with Google\" performs a full-page redirect using exactly: `window.location.href = \"/api/auth/google/start\"` (no environment-based backend base URL resolution).",
+      "reqIds": [
+        "REQ-199"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-all-references-to-the-backend-domain-dart-scoring-backend-caffeine-xyz-from-the-codebase-and-documentation-and-ensure-the-app-no-longer-depends-on-any-separate-backend-domain-configuration-for-google-oauth-initiation",
+      "title": "Remove all references to the backend domain `dart-scoring-backend.caffeine.xyz` from the codebase and documentation, and ensure the app no longer depends on any separate backend domain configuration for Google OAuth initiation.",
+      "reqIds": [
+        "REQ-200"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-dev-debug-only-backend-debug-panel-on-the-login-page-to-test-the-same-origin-api-endpoints-health-and-google-start-rather-than-using-any-external-backend-base-url-resolution",
+      "title": "Update the dev/debug-only \"Backend Debug\" panel on the `/login` page to test the same-origin `/api` endpoints (health and Google start) rather than using any external backend base URL resolution.",
+      "reqIds": [
+        "REQ-201"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-deployment-reverse-proxy-guidance-config-so-api-remains-routed-to-the-backend-http-endpoints-under-the-same-application-origin-no-separate-backend-domain-while-preserving-spa-routing-for-non-asset-paths",
+      "title": "Update deployment/reverse-proxy guidance/config so `/api/*` remains routed to the backend HTTP endpoints under the same application origin (no separate backend domain), while preserving SPA routing for non-asset paths.",
+      "reqIds": [
+        "REQ-202"
       ],
       "version": 1
     }
@@ -1666,6 +1855,102 @@
       "summary": "Maintain upgrade safety for any new/changed backend persisted state introduced by the OAuth hardening (e.g., OAuth state storage shape). If stable memory layout changes are required, add a conditional `backend/migration.mo` and wire it according to the project migration policy so canister upgrades do not brick existing deployments.",
       "reqIds": [
         "REQ-174"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-137",
+      "summary": "Fix frontend OAuth login crash by ensuring the entire app is wrapped in <OAuthTokenSessionProvider> (root level), preventing useOAuthTokenSession usage outside the provider, and adding a safe fallback so missing provider returns an unauthenticated/null state instead of throwing; Sign In page must render normally without crashing (no backend changes).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-140",
+      "summary": "Audit and update any OAuth/login-related components/hooks usage so `useOAuthTokenSession` is not used in module scope or in any way that could execute before React context is available (e.g., avoid calling it outside React components/hooks). Ensure the Sign In page path remains functional and shows the normal login UI under all expected loading/error states.",
+      "reqIds": [
+        "REQ-177"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-142",
+      "summary": "Add a dev/debug-only \"Backend Debug\" diagnostic panel on the /login page that shows the detected backend URL (same as Google button), provides a \"Test backend\" button that GET fetches <backendUrl>/health and displays OK on 200 or FAILED + short error, and provides a \"Test Google start\" button that fetches or opens <backendUrl>/auth/google/start and shows whether response is 200/302 vs 404; render results in UI (no alerts), frontend-only change, must not crash.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-143",
+      "summary": "Ensure the backend canister exposes a public HTTP endpoint equivalent to `GET /auth/google/start` that generates a redirect to start the Google OAuth flow.",
+      "reqIds": [
+        "REQ-194"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-144",
+      "summary": "Implement server-side OAuth `state` generation and persistence for `GET /auth/google/start` so that each request produces a single-use state value with a 10-minute TTL (expiration), stored in canister memory for later validation by the callback flow.",
+      "reqIds": [
+        "REQ-195"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-145",
+      "summary": "Keep `GET /auth/google/start` independent from any JWT-based authorization logic and ensure it remains publicly accessible even if other backend endpoints use authentication/authorization mixins.",
+      "reqIds": [
+        "REQ-196"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-146",
+      "summary": "Serve all backend endpoints from the same app under `/api/*` (no separate backend app/domain): expose `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback` (and rooms/auth routes) and update the frontend Google sign-in redirect to `window.location.href = \"/api/auth/google/start\"`; remove all references to `dart-scoring-backend.caffeine.xyz`; verify post-deploy behavior.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-147",
+      "summary": "Expose all backend HTTP endpoints under the same application origin using the `/api/...` path prefix, including at minimum: `/api/health`, `/api/auth/google/start`, and `/api/auth/google/callback` (and any existing rooms/auth endpoints used by the multi-device flow).",
+      "reqIds": [
+        "REQ-198"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-148",
+      "summary": "Fix /api/* returning Not Found by adding minimal Next.js API route handlers: implement /api/health (200 {ok:true}), /api/auth/google/start (302 redirect placeholder), /api/auth/google/callback (200 JSON \"callback reached\") using App Router (app/api/**/route.ts) or Pages Router fallback (pages/api/**.ts) depending on project structure; deploy and verify endpoints; do not change UI.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-149",
+      "summary": "Implement same-origin API route handler for `GET /api/health` so it returns HTTP 200 with JSON body exactly `{ \"ok\": true }` (no Not Found). Prefer implementing via Next.js App Router route handler at `app/api/health/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/health.ts`.",
+      "reqIds": [
+        "REQ-203"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-150",
+      "summary": "Implement same-origin API route handler for `GET /api/auth/google/start` so it is not Not Found and responds with an HTTP redirect (302 is acceptable) to a placeholder URL for now. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/start/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/start.ts`.",
+      "reqIds": [
+        "REQ-204"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-151",
+      "summary": "Implement same-origin API route handler for `GET /api/auth/google/callback` so it returns HTTP 200 with JSON indicating the callback was reached. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/callback/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/callback.ts`.",
+      "reqIds": [
+        "REQ-205"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-152",
+      "summary": "Verify the project routing mode and place the API handlers accordingly: confirm whether the project is using Next.js App Router (`/app`) or Pages Router (`/pages`), and ensure exactly one correct set of handlers is present and used by the runtime so `/api/*` endpoints are reachable after deployment.",
+      "reqIds": [
+        "REQ-206"
       ],
       "status": "pending"
     }

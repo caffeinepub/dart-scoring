@@ -1,43 +1,48 @@
 # Caddy reverse proxy configuration for Dart Scoring PWA
-# This is an OPTIONAL configuration for serving the app behind a custom domain
+# This configuration serves the app from a single domain with /api/* routed to backend
 
 # Replace with your actual domain
 yourdomain.com {
     # Automatic HTTPS with Let's Encrypt
     # Caddy handles certificate provisioning and renewal automatically
 
-    # Replace with your frontend canister ID
-    # Format: https://<canister-id>.ic0.app or https://<canister-id>.raw.ic0.app
-    reverse_proxy https://YOUR_FRONTEND_CANISTER_ID.ic0.app {
-        # Forward original host header
-        header_up Host {upstream_hostport}
-        
-        # Forward client IP
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-        
-        # Trust IC boundary node certificates
-        transport http {
-            tls
-            tls_insecure_skip_verify
+    # Route /api/* to backend canister (MUST come before general handle)
+    handle /api/* {
+        # Replace with your backend canister ID
+        reverse_proxy https://YOUR_BACKEND_CANISTER_ID.ic0.app {
+            # Forward original host header
+            header_up Host {upstream_hostport}
+            
+            # Forward client IP
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            
+            # Trust IC boundary node certificates
+            transport http {
+                tls
+                tls_insecure_skip_verify
+            }
         }
     }
 
-    # SPA routing: serve index.html for all non-asset paths
-    # This ensures TanStack Router can handle client-side routing
-    @notAsset {
-        not path /assets/*
-        not path /manifest.webmanifest
-        not path /service-worker.js
-        not path /*.png
-        not path /*.jpg
-        not path /*.ico
-        not path /*.svg
-        not path /*.woff*
-        not path /*.ttf
-        file {
-            try_files {path} /index.html
+    # Route everything else to frontend canister
+    handle {
+        # Replace with your frontend canister ID
+        reverse_proxy https://YOUR_FRONTEND_CANISTER_ID.ic0.app {
+            # Forward original host header
+            header_up Host {upstream_hostport}
+            
+            # Forward client IP
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            
+            # Trust IC boundary node certificates
+            transport http {
+                tls
+                tls_insecure_skip_verify
+            }
         }
     }
 
@@ -46,67 +51,33 @@ yourdomain.com {
         Cache-Control "public, max-age=31536000, immutable"
     }
 
-    # Cache PWA manifest and icons
+    # Cache manifest and service worker with shorter TTL
     header /manifest.webmanifest {
-        Cache-Control "public, max-age=86400"
-        Content-Type "application/manifest+json"
+        Cache-Control "public, max-age=3600"
     }
-
-    header /*.png {
-        Cache-Control "public, max-age=31536000, immutable"
-    }
-
-    # Don't cache service worker (needs to update immediately)
     header /service-worker.js {
-        Cache-Control "no-cache, no-store, must-revalidate"
-    }
-
-    # Don't cache index.html (SPA entry point)
-    header /index.html {
-        Cache-Control "no-cache, no-store, must-revalidate"
+        Cache-Control "public, max-age=3600"
     }
 
     # Security headers
     header {
-        # Prevent clickjacking
-        X-Frame-Options "SAMEORIGIN"
-        
-        # XSS protection
         X-Content-Type-Options "nosniff"
-        
-        # Referrer policy
+        X-Frame-Options "DENY"
         Referrer-Policy "strict-origin-when-cross-origin"
-        
-        # Permissions policy
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    }
-
-    # Enable gzip compression
-    encode gzip
-
-    # Logging
-    log {
-        output file /var/log/caddy/dart-scoring.log
-        format json
     }
 }
 
-# Optional: Redirect www to non-www
-www.yourdomain.com {
-    redir https://yourdomain.com{uri} permanent
-}
-
-# Optional: Serve multiple environments
-# dev.yourdomain.com {
-#     reverse_proxy https://DEV_CANISTER_ID.ic0.app {
-#         header_up Host {upstream_hostport}
-#     }
-# }
-
-# Notes:
-# 1. Replace "yourdomain.com" with your actual domain
-# 2. Replace "YOUR_FRONTEND_CANISTER_ID" with your canister ID from dfx
-# 3. Ensure DNS A/AAAA records point to your Caddy server
-# 4. Caddy will automatically obtain and renew Let's Encrypt certificates
-# 5. For local testing, use "http://localhost:8080" instead of domain
-# 6. The IC boundary nodes handle CORS; this config preserves those headers
+# Setup Instructions:
+# 1. Replace 'yourdomain.com' with your actual domain
+# 2. Replace 'YOUR_BACKEND_CANISTER_ID' with your backend canister ID
+# 3. Replace 'YOUR_FRONTEND_CANISTER_ID' with your frontend canister ID
+# 4. Install Caddy: https://caddyserver.com/docs/install
+# 5. Run: caddy run --config Caddyfile
+#
+# Important: The 'handle /api/*' block MUST come before the general 'handle' block
+# to ensure /api/* requests are routed to the backend and not subject to SPA fallback.
+#
+# Verification:
+# - curl https://yourdomain.com/api/health should return "IC System is healthy."
+# - curl -i https://yourdomain.com/api/auth/google/start should return HTTP 302/303
+# - curl https://yourdomain.com/ should return the SPA HTML

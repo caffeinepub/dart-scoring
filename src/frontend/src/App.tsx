@@ -12,6 +12,7 @@ import ProfilePage from './pages/ProfilePage';
 import GameDetailsPage from './pages/GameDetailsPage';
 import GoogleOAuthRedirectPage from './pages/GoogleOAuthRedirectPage';
 import AppLayout from './layouts/AppLayout';
+import { OAuthTokenSessionProvider } from './hooks/useOAuthTokenSession';
 
 // Create root route with layout
 const rootRoute = createRootRoute({
@@ -140,7 +141,11 @@ declare module '@tanstack/react-router' {
 }
 
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <OAuthTokenSessionProvider>
+      <RouterProvider router={router} />
+    </OAuthTokenSessionProvider>
+  );
 }
 
 export default App;

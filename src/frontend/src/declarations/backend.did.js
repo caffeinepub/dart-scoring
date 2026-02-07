@@ -74,8 +74,8 @@ export const UserProfile = IDL.Record({
 });
 export const GoogleOAuthConfig = IDL.Record({
   'clientId' : IDL.Text,
-  'redirectUri' : IDL.Text,
-  'frontendOAuthRedirect' : IDL.Text,
+  'frontendOAuthRedirectPath' : IDL.Text,
+  'redirectPath' : IDL.Text,
 });
 export const HealthCheck = IDL.Record({
   'name' : IDL.Text,
@@ -176,6 +176,7 @@ export const idlService = IDL.Service({
   'getGame' : IDL.Func([IDL.Nat], [IDL.Opt(Game)], ['query']),
   'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
   'getGoogleOAuthConfig' : IDL.Func([], [GoogleOAuthConfig], ['query']),
+  'getGoogleOAuthStartUrl' : IDL.Func([], [IDL.Text], ['query']),
   'getHealthStatus' : IDL.Func([], [HealthStatus], ['query']),
   'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getMyStats' : IDL.Func([], [IDL.Opt(UserStats)], ['query']),
@@ -306,8 +307,8 @@ export const idlFactory = ({ IDL }) => {
   });
   const GoogleOAuthConfig = IDL.Record({
     'clientId' : IDL.Text,
-    'redirectUri' : IDL.Text,
-    'frontendOAuthRedirect' : IDL.Text,
+    'frontendOAuthRedirectPath' : IDL.Text,
+    'redirectPath' : IDL.Text,
   });
   const HealthCheck = IDL.Record({
     'name' : IDL.Text,
@@ -408,6 +409,7 @@ export const idlFactory = ({ IDL }) => {
     'getGame' : IDL.Func([IDL.Nat], [IDL.Opt(Game)], ['query']),
     'getGamesByRoom' : IDL.Func([IDL.Nat], [IDL.Vec(Game)], ['query']),
     'getGoogleOAuthConfig' : IDL.Func([], [GoogleOAuthConfig], ['query']),
+    'getGoogleOAuthStartUrl' : IDL.Func([], [IDL.Text], ['query']),
     'getHealthStatus' : IDL.Func([], [HealthStatus], ['query']),
     'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getMyStats' : IDL.Func([], [IDL.Opt(UserStats)], ['query']),

@@ -1,6 +1,95 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Retry: Minimum Google OAuth security hardening (single-use state, 10 min TTL, safe linking rules, no token logging)",
-  "requirements": []
+  "title": "Add minimal same-origin /api route handlers to prevent Not Found responses",
+  "requirements": [
+    {
+      "id": "REQ-203",
+      "summary": "Implement GET /api/health handler returning HTTP 200 JSON body exactly { \"ok\": true }.",
+      "acceptanceCriteria": [
+        "Deploying the app makes `GET /api/health` respond with HTTP 200.",
+        "The response `Content-Type` is JSON, and the body is exactly `{ \"ok\": true }` (key name and boolean value).",
+        "`GET /api/health` is not a 404/Not Found under any environment (dev/prod)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/app/api/health/route.ts",
+          "operation": "create",
+          "description": "If the project uses Next.js App Router (app/ directory), add a Route Handler that responds to GET with HTTP 200 and JSON body exactly `{ \"ok\": true }` and an appropriate JSON Content-Type."
+        },
+        {
+          "path": "frontend/pages/api/health.ts",
+          "operation": "create",
+          "description": "If the project uses Next.js Pages Router (pages/ directory), add an API route that responds to GET with HTTP 200 and JSON body exactly `{ \"ok\": true }` and an appropriate JSON Content-Type."
+        }
+      ]
+    },
+    {
+      "id": "REQ-204",
+      "summary": "Implement GET /api/auth/google/start handler that returns a 3xx redirect to a placeholder URL (not Not Found).",
+      "acceptanceCriteria": [
+        "Deploying the app makes `GET /api/auth/google/start` respond with HTTP 302 (or another 3xx redirect) and a `Location` header.",
+        "`GET /api/auth/google/start` is not a 404/Not Found.",
+        "The route works under same-origin calls used by the existing frontend (`window.location.href = \"/api/auth/google/start\"`)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/app/api/auth/google/start/route.ts",
+          "operation": "create",
+          "description": "If using Next.js App Router, add a Route Handler for GET that returns an HTTP redirect (302 acceptable) with a `Location` header pointing to a placeholder URL, ensuring the route is not Not Found."
+        },
+        {
+          "path": "frontend/pages/api/auth/google/start.ts",
+          "operation": "create",
+          "description": "If using Next.js Pages Router, add an API route for GET that responds with a 3xx redirect (302 acceptable) and a `Location` header pointing to a placeholder URL, ensuring the route is not Not Found."
+        }
+      ]
+    },
+    {
+      "id": "REQ-205",
+      "summary": "Implement GET /api/auth/google/callback handler returning HTTP 200 JSON that includes the phrase \"callback reached\".",
+      "acceptanceCriteria": [
+        "Deploying the app makes `GET /api/auth/google/callback` respond with HTTP 200.",
+        "Response is JSON and includes an English message indicating the callback was reached (must include the phrase \"callback reached\").",
+        "`GET /api/auth/google/callback` is not a 404/Not Found."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/app/api/auth/google/callback/route.ts",
+          "operation": "create",
+          "description": "If using Next.js App Router, add a Route Handler for GET that responds with HTTP 200 and JSON containing an English message that includes the exact phrase \"callback reached\"."
+        },
+        {
+          "path": "frontend/pages/api/auth/google/callback.ts",
+          "operation": "create",
+          "description": "If using Next.js Pages Router, add an API route for GET that responds with HTTP 200 and JSON containing an English message that includes the exact phrase \"callback reached\"."
+        }
+      ]
+    },
+    {
+      "id": "REQ-206",
+      "summary": "Verify whether App Router or Pages Router is used and ensure only the correct set of /api handlers is present/active at runtime.",
+      "acceptanceCriteria": [
+        "After deployment, the three endpoints `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback` resolve to implemented handlers (no Not Found).",
+        "No duplicate/conflicting handler implementations cause ambiguity (only the router appropriate to the project structure is used at runtime)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/docs/deployment.md",
+          "operation": "modify",
+          "description": "Update deployment verification notes to explicitly confirm which router mode is used (App Router vs Pages Router) and to document that only one corresponding set of `/api/*` handlers should exist to avoid ambiguous routing after deployment."
+        },
+        {
+          "path": "frontend/app/api/health/route.ts",
+          "operation": "modify",
+          "description": "If Pages Router is the runtime mode, remove/avoid this App Router handler from the final deployed build so it does not create duplicate/conflicting implementations; keep only the router-appropriate handler set."
+        },
+        {
+          "path": "frontend/pages/api/health.ts",
+          "operation": "modify",
+          "description": "If App Router is the runtime mode, remove/avoid this Pages Router handler from the final deployed build so it does not create duplicate/conflicting implementations; keep only the router-appropriate handler set."
+        }
+      ]
+    }
+  ]
 }

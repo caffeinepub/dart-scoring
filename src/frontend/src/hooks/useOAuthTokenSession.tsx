@@ -37,10 +37,26 @@ export function OAuthTokenSessionProvider({ children }: { children: React.ReactN
   );
 }
 
+/**
+ * Hook to access OAuth token session.
+ * Returns a safe fallback if provider is not present (unauthenticated state).
+ * This prevents crashes when the provider is accidentally removed or misplaced.
+ */
 export function useOAuthTokenSession() {
   const context = useContext(OAuthTokenSessionContext);
+  
+  // Safe fallback: return unauthenticated state instead of throwing
   if (!context) {
-    throw new Error('useOAuthTokenSession must be used within OAuthTokenSessionProvider');
+    return {
+      googleAccessToken: null,
+      setGoogleAccessToken: () => {
+        console.warn('OAuthTokenSessionProvider not found. Token will not be stored.');
+      },
+      clearGoogleAccessToken: () => {
+        // No-op when provider is missing
+      },
+    };
   }
+  
   return context;
 }

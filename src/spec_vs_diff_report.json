@@ -1,52 +1,70 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T16:06:47.380Z",
-  "summary": "The diff shows only partial scaffolding for OAuth state storage (new `OAuthStateValue` type and an in-memory `oauthStates` map) and an unrelated update to `project_state.json`. There is no visible implementation of the required single-use + 10-minute TTL state lifecycle, callback validation, deterministic cleanup, email_verified-based linking rules, token-safe logging changes, or any upgrade/migration wiring for persisted state changes.",
+  "generatedAt": "2026-02-07T21:59:15.551Z",
+  "summary": "The diff does not add any Next.js `/api/*` route handlers (App Router or Pages Router). Instead, it modifies a Motoko backend file and a project state summary, which does not satisfy the request to fix Next.js same-origin `/api` routes returning Not Found.",
   "missing_requirements": [
     {
-      "id": "REQ-171",
-      "requirement": "Implement a secure OAuth `state` lifecycle (server-side persistence, 10 min TTL, single-use, callback validation, deterministic cleanup).",
-      "reason": "The diff only shows an `OAuthStateValue` record type and `oauthStates = Map.empty<Text, OAuthStateValue>()`, but no evidence of (1) random state generation, (2) persistence with expiration set to exactly 10 minutes, (3) callback validation rejecting missing/expired/used states, (4) marking/removing state on success, or (5) deterministic cleanup on each start/callback.",
+      "id": "REQ-203",
+      "requirement": "Implement same-origin API route handler for GET /api/health returning HTTP 200 with JSON body exactly { \"ok\": true } (not Not Found), using the appropriate Next.js router location (app/api/health/route.ts or pages/api/health.ts).",
+      "reason": "No Next.js route handler file for `/api/health` is added/modified in the diff; only `backend/main.mo` and `project_state.json` are modified.",
       "evidence": [
-        "backend/main.mo"
+        "backend/main.mo",
+        "project_state.json"
       ]
     },
     {
-      "id": "REQ-172",
-      "requirement": "Enforce Google account linking rules: do not link by email when `email_verified` is false; preserve uniqueness for (oauth_provider, oauth_subject).",
-      "reason": "The diff does not show any Google userinfo handling, any branching on `email_verified`, or any linking logic enforcing the stated constraints. The presence of `email_verified : Bool` on `User` alone is not evidence of the required behavior.",
+      "id": "REQ-204",
+      "requirement": "Implement same-origin API route handler for GET /api/auth/google/start that responds with an HTTP redirect (3xx) with a Location header (not Not Found), using the appropriate Next.js router location (app/api/auth/google/start/route.ts or pages/api/auth/google/start.ts).",
+      "reason": "No Next.js route handler file for `/api/auth/google/start` is added/modified in the diff; only `backend/main.mo` and `project_state.json` are modified.",
       "evidence": [
-        "backend/main.mo"
+        "backend/main.mo",
+        "project_state.json"
       ]
     },
     {
-      "id": "REQ-173",
-      "requirement": "Ensure tokens/secrets are never written to logs in Google OAuth start/callback; log only safe error codes.",
-      "reason": "No OAuth start/callback code paths or logging statements are shown being reviewed/changed; there is no evidence of removal/avoidance of logging of authorization codes/tokens or of replacing logs with non-sensitive error codes.",
+      "id": "REQ-205",
+      "requirement": "Implement same-origin API route handler for GET /api/auth/google/callback returning HTTP 200 with JSON including an English message containing the phrase \"callback reached\" (not Not Found), using the appropriate Next.js router location (app/api/auth/google/callback/route.ts or pages/api/auth/google/callback.ts).",
+      "reason": "No Next.js route handler file for `/api/auth/google/callback` is added/modified in the diff; only `backend/main.mo` and `project_state.json` are modified.",
       "evidence": [
-        "backend/main.mo"
+        "backend/main.mo",
+        "project_state.json"
       ]
     },
     {
-      "id": "REQ-174",
-      "requirement": "Maintain upgrade safety for any new/changed persisted state introduced by OAuth hardening; add conditional `backend/migration.mo` if stable layout changes are needed.",
-      "reason": "No `backend/migration.mo` was added, and the diff provides no evidence of stable-state layout changes being handled safely on upgrade (e.g., `preupgrade`/`postupgrade` updates or conditional migration initialization).",
+      "id": "REQ-206",
+      "requirement": "Verify whether the project uses Next.js App Router (/app) or Pages Router (/pages) and ensure exactly one correct set of handlers is present so the `/api/*` endpoints are reachable after deployment without duplicates/conflicts.",
+      "reason": "The diff provides no evidence of router-mode verification or placement of API handlers in either `/app/api/...` or `/pages/api/...` (no such files are added/modified).",
       "evidence": [
-        "backend/main.mo"
+        "backend/main.mo",
+        "project_state.json"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Project state updated to describe adding full user accounts/authentication with password hashing and JWT access/refresh tokens and related endpoints.",
-      "reason": "This functionality is not requested in REQ-171..REQ-174 (which focus narrowly on Google OAuth state lifecycle, linking rules, token-safe logging, and upgrade safety). The diff shows `project_state.json` summary describing JWT/password features, which appears out of scope for this BuildRequest.",
+      "description": "Added/expanded Google OAuth configuration/state data structures and in-backend OAuth state storage (e.g., GoogleOAuthConfig, OAuthStateValue, oauthStates) beyond the requested minimal placeholder API route handlers.",
+      "reason": "The BuildRequest explicitly scopes to minimal `/api/*` route handlers and states that implementing the real Google OAuth flow (state handling, token exchange, user mapping) is out of scope.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "description": "Introduced/expanded complex health/status modeling types (HealthCheck, HealthStatus with components/message/httpCode) rather than a minimal `{ \"ok\": true }` JSON response for `/api/health`.",
+      "reason": "REQ-203 requires the `/api/health` response body to be exactly `{ \"ok\": true }` from a Next.js API route handler; the diff instead shows additional backend types without evidence of the required Next.js route implementation.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "description": "Project state summary claims an architecture change to expose all backend endpoints under `/api/...` and remove references to an external backend domain.",
+      "reason": "The BuildRequest asks only to fix server-side `/api/*` routing to avoid Not Found with minimal handlers and explicitly avoids broader changes; the diff shows a broader architecture summary change without corresponding Next.js handler additions.",
       "evidence": [
         "project_state.json"
       ]
     }
   ],
-  "confidence": 0.62,
+  "confidence": 0.78,
   "changed_files": [
     "backend/main.mo",
     "project_state.json"
