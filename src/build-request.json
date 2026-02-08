@@ -1,96 +1,164 @@
 {
   "kind": "build_request",
-  "title": "Fix same-origin /api routes returning Not Found by adding minimal route handlers",
-  "priority": "high",
+  "title": "Switch authentication to Internet Identity only and use II identity for backend calls (remove Google/Bearer-token flows)",
+  "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-203",
-      "text": "Implement same-origin API route handler for `GET /api/health` so it returns HTTP 200 with JSON body exactly `{ \"ok\": true }` (no Not Found). Prefer implementing via Next.js App Router route handler at `app/api/health/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/health.ts`.",
-      "target": "unknown",
+      "id": "REQ-219",
+      "text": "Update the `/login` page so Internet Identity is the only available sign-in method: keep a single primary button labeled \"Sign in\" and remove any active Google sign-in option and any UI copy that suggests Google sign-in is available.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-6",
+          "msg-9"
         ],
         "quotes": [
-          "Utwórz plik:\n   app/api/health/route.ts\n   który zwraca JSON 200:\n   { \"ok\": true }",
-          "Po wdrożeniu MUSI działać:\n   - GET /api/health => 200 JSON {ok:true}",
-          "Nie zmieniaj UI. Najpierw spraw, żeby /api/health działało."
+          "Zmień logowanie na Internet Identity (ICP) i usuń Google login.\n\nWymagania:\n1) Na /login zostaw tylko:\n- przycisk \"Sign in\" (Internet Identity)\n- usuń/wyłącz \"Continue with Google\"",
+          "Raz jeszcze"
         ]
       },
       "acceptanceCriteria": [
-        "Deploying the app makes `GET /api/health` respond with HTTP 200.",
-        "The response `Content-Type` is JSON, and the body is exactly `{ \"ok\": true }` (key name and boolean value).",
-        "`GET /api/health` is not a 404/Not Found under any environment (dev/prod)."
+        "On `/login`, the only interactive sign-in action is the button labeled exactly \"Sign in\".",
+        "No button labeled \"Continue with Google\" is shown and no click action can initiate any `/auth/google/*` navigation or redirect from the UI.",
+        "All user-facing text on `/login` remains in English."
       ]
     },
     {
-      "id": "REQ-204",
-      "text": "Implement same-origin API route handler for `GET /api/auth/google/start` so it is not Not Found and responds with an HTTP redirect (302 is acceptable) to a placeholder URL for now. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/start/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/start.ts`.",
-      "target": "unknown",
+      "id": "REQ-220",
+      "text": "Ensure the Internet Identity login flow uses the official AuthClient login with `identityProvider` set to `https://identity.ic0.app` (without editing immutable Internet Identity hook source files).",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-6"
         ],
         "quotes": [
-          "Utwórz plik:\n   app/api/auth/google/start/route.ts\n   który na razie zwraca 302 redirect do placeholdera (może być Google URL później),\n   ale NIE może być Not Found.",
-          "Po wdrożeniu MUSI działać:\n   - GET /api/auth/google/start => nie Not Found (może redirect)"
+          "- użyj oficjalnego flow Internet Identity dla IC (AuthClient):\n  - login() z identityProvider: https://identity.ic0.app"
         ]
       },
       "acceptanceCriteria": [
-        "Deploying the app makes `GET /api/auth/google/start` respond with HTTP 302 (or another 3xx redirect) and a `Location` header.",
-        "`GET /api/auth/google/start` is not a 404/Not Found.",
-        "The route works under same-origin calls used by the existing frontend (`window.location.href = \"/api/auth/google/start\"`)."
+        "Clicking \"Sign in\" initiates Internet Identity authentication against `https://identity.ic0.app`.",
+        "No changes are made to immutable files under `frontend/src/hooks/useInternetIdentity.ts` / `.tsx`."
       ]
     },
     {
-      "id": "REQ-205",
-      "text": "Implement same-origin API route handler for `GET /api/auth/google/callback` so it returns HTTP 200 with JSON indicating the callback was reached. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/callback/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/callback.ts`.",
-      "target": "unknown",
+      "id": "REQ-221",
+      "text": "After a successful Internet Identity login, fetch the authenticated user session from the backend by calling: `GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami`, then store the returned `principal` and `user` in application state and treat the session as authenticated.",
+      "target": "both",
       "source": {
         "messageIds": [
           "msg-6"
         ],
         "quotes": [
-          "Utwórz plik:\n   app/api/auth/google/callback/route.ts\n   który zwraca JSON 200 z informacją \"callback reached\".",
-          "Po wdrożeniu MUSI działać:\n   - GET /api/auth/google/callback => 200"
+          "- po zalogowaniu:\n  - wywołaj backend: GET {BACKEND_URL}/auth/whoami\n  - zapisz principal i user w stanie aplikacji\n  - traktuj to jako \"zalogowany\""
         ]
       },
       "acceptanceCriteria": [
-        "Deploying the app makes `GET /api/auth/google/callback` respond with HTTP 200.",
-        "Response is JSON and includes an English message indicating the callback was reached (must include the phrase \"callback reached\").",
-        "`GET /api/auth/google/callback` is not a 404/Not Found."
+        "After Internet Identity login completes, the frontend issues `GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami`.",
+        "The frontend stores the backend-returned `principal` and `user` in a centralized session state (not scattered per-page local state).",
+        "If the `whoami` call fails, the UI shows a clear English error message and does not crash.",
+        "Backend provides an HTTP GET handler at path `/auth/whoami` that returns the caller Principal plus user/profile information in a JSON-compatible shape (non-trapping for expected cases like \"no profile yet\")."
       ]
     },
     {
-      "id": "REQ-206",
-      "text": "Verify the project routing mode and place the API handlers accordingly: confirm whether the project is using Next.js App Router (`/app`) or Pages Router (`/pages`), and ensure exactly one correct set of handlers is present and used by the runtime so `/api/*` endpoints are reachable after deployment.",
-      "target": "unknown",
+      "id": "REQ-222",
+      "text": "Refactor frontend backend-call wiring so all authenticated backend interactions use the Internet Identity identity (agent configured with the AuthClient identity) so the backend can read the caller Principal; do not use `Authorization: Bearer` tokens for any backend requests.",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-6"
         ],
         "quotes": [
-          "Upewnij się, że projekt faktycznie używa folderu /app (App Router).\n   Jeśli projekt używa /pages router zamiast /app:\n   wtedy zrób odpowiedniki: ..."
+          "3) Wszystkie requesty do backendu mają używać tej identity (agent z identity),\nżeby backend widział caller Principal.\nNie używaj Authorization Bearer tokenów."
         ]
       },
       "acceptanceCriteria": [
-        "After deployment, the three endpoints `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback` resolve to implemented handlers (no Not Found).",
-        "No duplicate/conflicting handler implementations cause ambiguity (only the router appropriate to the project structure is used at runtime)."
+        "No frontend code path sends `Authorization: Bearer ...` to the backend (including rooms/game mutations).",
+        "Authenticated backend calls are executed through an IC agent/actor configured with the Internet Identity delegation/identity (so the backend can observe the caller Principal).",
+        "Guest/no-account flows still work without requiring Internet Identity authentication (anonymous actor or token-based guest mechanism as applicable), and failures surface as non-crashing English messages."
+      ]
+    },
+    {
+      "id": "REQ-223",
+      "text": "Update the app header (top-right) to show \"Profile\" plus the authenticated principal and/or username when logged in, and add a \"Sign out\" action that logs out via AuthClient and clears all session state.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "4) UI:\n- w prawym górnym rogu pokaż \"Profile\" i principal/username po zalogowaniu\n- dodaj \"Sign out\" (wyloguj AuthClient i wyczyść stan)"
+        ]
+      },
+      "acceptanceCriteria": [
+        "When logged out, the header shows a \"Sign in\" action that navigates to `/login` (or triggers the expected login flow).",
+        "When logged in, the header displays \"Profile\" and also displays the user’s principal string and/or username clearly.",
+        "Clicking \"Sign out\" logs out of Internet Identity (AuthClient logout), clears the stored principal/user session state, and clears cached app queries/state so authenticated data is not shown after logout.",
+        "All header user-facing text is in English."
+      ]
+    },
+    {
+      "id": "REQ-224",
+      "text": "Update the multi-device Rooms UI so \"Create with Account\" is available and functional only when the user is logged in via Internet Identity; \"Create without account\" remains always available for guests.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "5) Rooms:\n- \"Create with Account\" ma działać tylko gdy user jest zalogowany (II).\n- \"Create without account\" działa zawsze (guest)."
+        ]
+      },
+      "acceptanceCriteria": [
+        "If the user is not authenticated via Internet Identity, the UI prevents selecting/using \"Create with Account\" and provides a clear English explanation (e.g., instructing to sign in).",
+        "If the user is authenticated via Internet Identity, \"Create with Account\" is enabled and performs the create-room flow successfully.",
+        "\"Create without account\" remains usable regardless of authentication state."
+      ]
+    },
+    {
+      "id": "REQ-225",
+      "text": "Remove or neutralize any remaining Google-OAuth-specific frontend session handling that could affect the login experience (including any dev-only Google OAuth testing UI) so the login page cannot crash or show Google-login-related configuration errors.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6",
+          "msg-9"
+        ],
+        "quotes": [
+          "usuń Google login.",
+          "Raz jeszcze"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The `/login` page renders without uncaught exceptions in all states (initializing, logged out, logging in, login error).",
+        "No user-facing messages about Google login configuration (e.g., \"Google login not configured\") appear anywhere in the login experience.",
+        "No UI element triggers any Google OAuth start/callback flow."
       ]
     }
   ],
   "constraints": [
-    "Do not change any UI/UX or frontend pages/components; only fix the server-side `/api/*` routing so it no longer returns Not Found.",
-    "Use English for any user-facing text returned by the API handlers (e.g., the callback JSON message).",
-    "Focus first on making `/api/health` work; ensure it is implemented and verified before relying on the Google routes."
+    "Frontend immutable paths must not be edited: `frontend/src/hooks/useInternetIdentity.ts`, `frontend/src/hooks/useInternetIdentity.tsx`, `frontend/src/hooks/useActor.ts`, `frontend/src/main.tsx`, and anything under `frontend/src/components/ui`.",
+    "Backend must remain a single Motoko actor with all logic in `backend/main.mo`; add `backend/migration.mo` only if a state upgrade requires it (conditional migration policy).",
+    "Use English for all user-facing text."
   ],
   "nonGoals": [
-    "Implementing the real Google OAuth flow (state handling, token exchange, user mapping) is out of scope for this fix; redirects can go to a placeholder URL.",
-    "Changing existing frontend Google sign-in behavior is out of scope; it should keep working against `/api/auth/google/start` once the endpoint exists.",
-    "Adding new UI diagnostics or modifying the existing Backend Debug Panel is out of scope."
+    "Re-enabling Google OAuth login or adding any new Google OAuth endpoints/redirect handling in the frontend.",
+    "Introducing Authorization Bearer token authentication for app features.",
+    "Adding third-party authentication providers beyond Internet Identity."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [
+      "Use English for all user-facing UI text."
+    ],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

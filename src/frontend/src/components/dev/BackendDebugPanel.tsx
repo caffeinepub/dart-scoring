@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { BACKEND_URL } from '../../lib/config';
 
 type TestStatus = 'idle' | 'loading' | 'ok' | 'failed';
 
@@ -12,14 +13,14 @@ interface TestResult {
 
 export default function BackendDebugPanel() {
   const [healthTest, setHealthTest] = useState<TestResult>({ status: 'idle' });
-  const [googleStartTest, setGoogleStartTest] = useState<TestResult>({ status: 'idle' });
 
   const testBackendHealth = async () => {
     setHealthTest({ status: 'loading' });
     
     try {
-      const response = await fetch('/api/health', {
+      const response = await fetch(`${BACKEND_URL}/health`, {
         method: 'GET',
+        credentials: 'omit',
       });
 
       if (response.status === 200) {
@@ -33,48 +34,6 @@ export default function BackendDebugPanel() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setHealthTest({ 
-        status: 'failed', 
-        message: `FAILED: ${errorMessage}` 
-      });
-    }
-  };
-
-  const testGoogleStart = async () => {
-    setGoogleStartTest({ status: 'loading' });
-    
-    try {
-      const response = await fetch('/api/auth/google/start', {
-        method: 'GET',
-        redirect: 'manual', // Don't follow redirects automatically
-      });
-
-      // Status 0 means redirect was blocked (opaque response), but endpoint exists
-      // Status 200 or 302/303 means success
-      // Status 404 means not found
-      if (response.type === 'opaqueredirect' || response.status === 0) {
-        setGoogleStartTest({ 
-          status: 'ok', 
-          message: '200/302 (redirect detected)' 
-        });
-      } else if (response.status === 200 || response.status === 302 || response.status === 303) {
-        setGoogleStartTest({ 
-          status: 'ok', 
-          message: `200/302 (HTTP ${response.status})` 
-        });
-      } else if (response.status === 404) {
-        setGoogleStartTest({ 
-          status: 'failed', 
-          message: '404 (Not Found)' 
-        });
-      } else {
-        setGoogleStartTest({ 
-          status: 'failed', 
-          message: `FAILED: HTTP ${response.status}` 
-        });
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setGoogleStartTest({ 
         status: 'failed', 
         message: `FAILED: ${errorMessage}` 
       });
@@ -122,7 +81,7 @@ export default function BackendDebugPanel() {
         <div>
           <p className="font-medium mb-1">Backend URL:</p>
           <code className="block bg-background px-2 py-1 rounded text-xs break-all">
-            /api (same-origin)
+            {BACKEND_URL}
           </code>
         </div>
 
@@ -146,30 +105,6 @@ export default function BackendDebugPanel() {
               </>
             ) : (
               'Test backend'
-            )}
-          </Button>
-        </div>
-
-        {/* Google start test */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">Google OAuth start:</span>
-            {renderTestStatus(googleStartTest)}
-          </div>
-          <Button
-            onClick={testGoogleStart}
-            disabled={googleStartTest.status === 'loading'}
-            size="sm"
-            variant="outline"
-            className="w-full"
-          >
-            {googleStartTest.status === 'loading' ? (
-              <>
-                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                Testing...
-              </>
-            ) : (
-              'Test Google start'
             )}
           </Button>
         </div>

@@ -1,25 +1,14 @@
 import { useInternetIdentity } from './useInternetIdentity';
 import { useQueryClient } from '@tanstack/react-query';
-import { useOAuthTokenSession } from './useOAuthTokenSession';
 
 /**
  * Centralized session/auth abstraction for the application.
  * 
- * Currently wraps Internet Identity authentication and in-memory OAuth token storage.
- * 
- * Future enhancement: For non-Internet-Identity token-based authentication,
- * this abstraction could be extended to:
- * - Store refresh tokens in httpOnly cookies (set by backend)
- * - Keep access tokens in memory only (never in localStorage/sessionStorage)
- * - Implement background token refresh before expiration
- * - Handle token rotation and secure credential management
- * 
- * Current implementation keeps all credentials in-memory via Internet Identity
- * delegation and does not persist any access credentials to browser storage.
+ * Wraps Internet Identity authentication for the app.
+ * All authenticated backend calls use the II identity/principal.
  */
 export function useSession() {
   const { identity, login, clear, loginStatus, isInitializing } = useInternetIdentity();
-  const { setGoogleAccessToken, clearGoogleAccessToken } = useOAuthTokenSession();
   const queryClient = useQueryClient();
 
   const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
@@ -40,28 +29,8 @@ export function useSession() {
 
   const signOut = async () => {
     await clear();
-    // Clear OAuth token
-    clearGoogleAccessToken();
     // Clear all cached queries on sign out to prevent data leakage
     queryClient.clear();
-  };
-
-  /**
-   * Store Google OAuth access token in memory.
-   * Used by the OAuth redirect handler after successful authentication.
-   */
-  const setOAuthToken = (token: string) => {
-    setGoogleAccessToken(token);
-  };
-
-  /**
-   * Placeholder for future session refresh functionality.
-   * In a token-based system, this would refresh the access token
-   * using the httpOnly refresh token cookie.
-   */
-  const refreshSession = async () => {
-    // Currently a no-op for Internet Identity
-    // Future: Implement token refresh logic here
   };
 
   return {
@@ -69,8 +38,6 @@ export function useSession() {
     identity,
     signIn,
     signOut,
-    setOAuthToken,
-    refreshSession,
     loginStatus,
     isInitializing,
     isLoggingIn: loginStatus === 'logging-in',

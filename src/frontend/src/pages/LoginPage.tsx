@@ -4,9 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LogIn, Loader2, User } from 'lucide-react';
-import { SiGoogle } from 'react-icons/si';
 import { useSession } from '../hooks/useSession';
-import BackendDebugPanel from '../components/dev/BackendDebugPanel';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -25,11 +23,6 @@ export default function LoginPage() {
     } catch (error) {
       console.error('Login failed:', error);
     }
-  };
-
-  const handleGoogleSignIn = () => {
-    // Perform full-page redirect to same-origin /api/auth/google/start
-    window.location.href = "/api/auth/google/start";
   };
 
   if (isInitializing) {
@@ -69,7 +62,7 @@ export default function LoginPage() {
             <LogIn className="h-5 w-5" />
             Sign In
           </CardTitle>
-          <CardDescription>Sign in with Internet Identity or Google to access your account</CardDescription>
+          <CardDescription>Sign in with Internet Identity to access your account</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {loginStatus === 'loginError' && (
@@ -98,30 +91,8 @@ export default function LoginPage() {
               </>
             )}
           </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleGoogleSignIn}
-            variant="outline"
-            className="w-full"
-            size="lg"
-          >
-            <SiGoogle className="mr-2 h-4 w-4" />
-            Continue with Google
-          </Button>
         </CardContent>
       </Card>
-
-      {/* Dev-only Backend Debug Panel */}
-      {import.meta.env.DEV && <BackendDebugPanel />}
     </div>
   );
 }

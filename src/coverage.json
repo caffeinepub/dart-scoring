@@ -1,55 +1,109 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T21:59:15.557Z",
+  "generatedAt": "2026-02-08T00:13:36.843Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 4,
-    "implemented": 0,
+    "total": 7,
+    "implemented": 6,
     "items": [
       {
-        "id": "REQ-203",
-        "summary": "Implement same-origin API route handler for `GET /api/health` so it returns HTTP 200 with JSON body exactly `{ \"ok\": true }` (no Not Found). Prefer implementing via Next.js App Router route handler at `app/api/health/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/health.ts`.",
+        "id": "REQ-219",
+        "summary": "Update the `/login` page so Internet Identity is the only available sign-in method: keep a single primary button labeled \"Sign in\" and remove any active Google sign-in option and any UI copy that suggests Google sign-in is available.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/LoginPage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/LoginPage.tsx"
+        ]
+      },
+      {
+        "id": "REQ-220",
+        "summary": "Ensure the Internet Identity login flow uses the official AuthClient login with `identityProvider` set to `https://identity.ic0.app` (without editing immutable Internet Identity hook source files).",
         "status": "missing",
         "plannedFiles": [
-          "frontend/app/api/health/route.ts",
-          "frontend/pages/api/health.ts"
+          "frontend/vite.config.ts"
         ],
         "matchedFiles": []
       },
       {
-        "id": "REQ-204",
-        "summary": "Implement same-origin API route handler for `GET /api/auth/google/start` so it is not Not Found and responds with an HTTP redirect (302 is acceptable) to a placeholder URL for now. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/start/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/start.ts`.",
-        "status": "missing",
+        "id": "REQ-221",
+        "summary": "After a successful Internet Identity login, fetch the authenticated user session from the backend by calling: `GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami`, then store the returned `principal` and `user` in application state and treat the session as authenticated.",
+        "status": "implemented",
         "plannedFiles": [
-          "frontend/app/api/auth/google/start/route.ts",
-          "frontend/pages/api/auth/google/start.ts"
+          "frontend/src/hooks/useBackendWhoamiSession.tsx",
+          "frontend/src/lib/config.ts",
+          "frontend/src/App.tsx",
+          "frontend/src/pages/LoginPage.tsx"
         ],
-        "matchedFiles": []
+        "matchedFiles": [
+          "frontend/src/App.tsx",
+          "frontend/src/pages/LoginPage.tsx"
+        ]
       },
       {
-        "id": "REQ-205",
-        "summary": "Implement same-origin API route handler for `GET /api/auth/google/callback` so it returns HTTP 200 with JSON indicating the callback was reached. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/callback/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/callback.ts`.",
-        "status": "missing",
+        "id": "REQ-222",
+        "summary": "Refactor frontend backend-call wiring so all authenticated backend interactions use the Internet Identity identity (agent configured with the AuthClient identity) so the backend can read the caller Principal; do not use `Authorization: Bearer` tokens for any backend requests.",
+        "status": "implemented",
         "plannedFiles": [
-          "frontend/app/api/auth/google/callback/route.ts",
-          "frontend/pages/api/auth/google/callback.ts"
+          "frontend/src/lib/authHeaders.ts",
+          "frontend/src/lib/roomsApi.ts",
+          "frontend/src/lib/roomGameApi.ts",
+          "frontend/src/pages/StartGamePage.tsx"
         ],
-        "matchedFiles": []
+        "matchedFiles": [
+          "frontend/src/lib/authHeaders.ts",
+          "frontend/src/lib/roomsApi.ts",
+          "frontend/src/lib/roomGameApi.ts",
+          "frontend/src/pages/StartGamePage.tsx"
+        ]
       },
       {
-        "id": "REQ-206",
-        "summary": "Verify the project routing mode and place the API handlers accordingly: confirm whether the project is using Next.js App Router (`/app`) or Pages Router (`/pages`), and ensure exactly one correct set of handlers is present and used by the runtime so `/api/*` endpoints are reachable after deployment.",
-        "status": "missing",
+        "id": "REQ-223",
+        "summary": "Update the app header (top-right) to show \"Profile\" plus the authenticated principal and/or username when logged in, and add a \"Sign out\" action that logs out via AuthClient and clears all session state.",
+        "status": "implemented",
         "plannedFiles": [
-          "frontend/docs/deployment.md",
-          "frontend/app/api/health/route.ts",
-          "frontend/pages/api/health.ts"
+          "frontend/src/layouts/AppLayout.tsx",
+          "frontend/src/hooks/useSession.ts"
         ],
-        "matchedFiles": []
+        "matchedFiles": [
+          "frontend/src/layouts/AppLayout.tsx",
+          "frontend/src/hooks/useSession.ts"
+        ]
+      },
+      {
+        "id": "REQ-224",
+        "summary": "Update the multi-device Rooms UI so \"Create with Account\" is available and functional only when the user is logged in via Internet Identity; \"Create without account\" remains always available for guests.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/StartGamePage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/StartGamePage.tsx"
+        ]
+      },
+      {
+        "id": "REQ-225",
+        "summary": "Remove or neutralize any remaining Google-OAuth-specific frontend session handling that could affect the login experience (including any dev-only Google OAuth testing UI) so the login page cannot crash or show Google-login-related configuration errors.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useOAuthTokenSession.tsx",
+          "frontend/src/hooks/useSession.ts",
+          "frontend/src/App.tsx",
+          "frontend/src/pages/GoogleOAuthRedirectPage.tsx",
+          "frontend/src/pages/StartGamePage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useOAuthTokenSession.tsx",
+          "frontend/src/hooks/useSession.ts",
+          "frontend/src/App.tsx",
+          "frontend/src/pages/GoogleOAuthRedirectPage.tsx",
+          "frontend/src/pages/StartGamePage.tsx"
+        ]
       }
     ]
   },
@@ -57,7 +111,25 @@
     "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
+    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
+    "frontend/src/App.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/rooms/ClaimSeatPanel.tsx",
+    "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useOAuthTokenSession.tsx",
+    "frontend/src/hooks/useSession.ts",
+    "frontend/src/layouts/AppLayout.tsx",
+    "frontend/src/lib/authHeaders.ts",
+    "frontend/src/lib/roomGameApi.ts",
+    "frontend/src/lib/roomsApi.ts",
+    "frontend/src/pages/GoogleOAuthRedirectPage.tsx",
+    "frontend/src/pages/LoginPage.tsx",
+    "frontend/src/pages/RoomHostScorerPage.tsx",
+    "frontend/src/pages/StartGamePage.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

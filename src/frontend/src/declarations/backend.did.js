@@ -37,6 +37,10 @@ export const Game = IDL.Record({
   'winnerPlayerId' : IDL.Opt(IDL.Nat),
   'roomId' : IDL.Nat,
 });
+export const RoomCreationError = IDL.Record({
+  'code' : IDL.Text,
+  'message' : IDL.Text,
+});
 export const RoomStatus = IDL.Variant({
   'Open' : IDL.Null,
   'Closed' : IDL.Null,
@@ -49,6 +53,10 @@ export const Room = IDL.Record({
   'code' : IDL.Text,
   'owner_user_id' : IDL.Opt(IDL.Principal),
   'hostId' : IDL.Text,
+});
+export const RoomCreateResult = IDL.Variant({
+  'error' : RoomCreationError,
+  'success' : IDL.Record({ 'admin_token' : IDL.Opt(IDL.Text), 'room' : Room }),
 });
 export const ShotEvent = IDL.Record({
   'id' : IDL.Nat,
@@ -139,6 +147,11 @@ export const User = IDL.Record({
   'email_verified' : IDL.Bool,
   'oauth_provider' : IDL.Opt(IDL.Text),
 });
+export const WhoAmI = IDL.Record({
+  'principal' : IDL.Principal,
+  'user' : IDL.Opt(User),
+  'authenticated' : IDL.Bool,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -158,7 +171,7 @@ export const idlService = IDL.Service({
   'createGame' : IDL.Func([IDL.Nat, IDL.Opt(AdminToken)], [Game], []),
   'createRoomV2' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Bool],
-      [IDL.Record({ 'admin_token' : IDL.Opt(IDL.Text), 'room' : Room })],
+      [RoomCreateResult],
       [],
     ),
   'createShotEvent' : IDL.Func(
@@ -236,6 +249,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'whoami' : IDL.Func([], [WhoAmI], ['query']),
 });
 
 export const idlInitArgs = [];
@@ -270,6 +284,10 @@ export const idlFactory = ({ IDL }) => {
     'winnerPlayerId' : IDL.Opt(IDL.Nat),
     'roomId' : IDL.Nat,
   });
+  const RoomCreationError = IDL.Record({
+    'code' : IDL.Text,
+    'message' : IDL.Text,
+  });
   const RoomStatus = IDL.Variant({
     'Open' : IDL.Null,
     'Closed' : IDL.Null,
@@ -282,6 +300,13 @@ export const idlFactory = ({ IDL }) => {
     'code' : IDL.Text,
     'owner_user_id' : IDL.Opt(IDL.Principal),
     'hostId' : IDL.Text,
+  });
+  const RoomCreateResult = IDL.Variant({
+    'error' : RoomCreationError,
+    'success' : IDL.Record({
+      'admin_token' : IDL.Opt(IDL.Text),
+      'room' : Room,
+    }),
   });
   const ShotEvent = IDL.Record({
     'id' : IDL.Nat,
@@ -372,6 +397,11 @@ export const idlFactory = ({ IDL }) => {
     'email_verified' : IDL.Bool,
     'oauth_provider' : IDL.Opt(IDL.Text),
   });
+  const WhoAmI = IDL.Record({
+    'principal' : IDL.Principal,
+    'user' : IDL.Opt(User),
+    'authenticated' : IDL.Bool,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -391,7 +421,7 @@ export const idlFactory = ({ IDL }) => {
     'createGame' : IDL.Func([IDL.Nat, IDL.Opt(AdminToken)], [Game], []),
     'createRoomV2' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Bool],
-        [IDL.Record({ 'admin_token' : IDL.Opt(IDL.Text), 'room' : Room })],
+        [RoomCreateResult],
         [],
       ),
     'createShotEvent' : IDL.Func(
@@ -473,6 +503,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'whoami' : IDL.Func([], [WhoAmI], ['query']),
   });
 };
 

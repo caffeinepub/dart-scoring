@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Play, UserPlus, X, Users, Tv, Lock } from 'lucide-react';
+import { Play, UserPlus, X, Users, Tv, Lock, AlertCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
@@ -10,32 +10,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { saveGameSettings, sanitizePlayerNames } from '../lib/gameSettings';
-import { createRoom, getRoomByCode } from '../lib/roomsApi';
 import { setAdminToken } from '../lib/adminTokenStorage';
+import { useSession } from '../hooks/useSession';
 import { useActor } from '../hooks/useActor';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import RoomCodeDisplay from '../components/rooms/RoomCodeDisplay';
 
 export default function StartGamePage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useSession();
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const [mode, setMode] = useState<301 | 501>(501);
   const [doubleOut, setDoubleOut] = useState(false);
   const [players, setPlayers] = useState(['', '']);
 
   // Multi-device state
   const [multiDeviceMode, setMultiDeviceMode] = useState<'none' | 'create' | 'join'>('none');
-  const [roomCode, setRoomCode] = useState('');
   const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
   const [createdWithAccount, setCreatedWithAccount] = useState(false);
   const [joinRoomCode, setJoinRoomCode] = useState('');
-  const [joinAdminToken, setJoinAdminToken] = useState('');
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isCreatingWithAccount, setIsCreatingWithAccount] = useState(false);
+  const [isCreatingWithoutAccount, setIsCreatingWithoutAccount] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
 
   const handleAddPlayer = () => {
     if (players.length < 4) {
@@ -66,397 +62,325 @@ export default function StartGamePage() {
   };
 
   const handleCreateRoom = async (withAccount: boolean) => {
-    setIsCreatingRoom(true);
+    if (withAccount) {
+      setIsCreatingWithAccount(true);
+    } else {
+      setIsCreatingWithoutAccount(true);
+    }
     setError(null);
+
     try {
-      const result = await createRoom(actor, withAccount);
-      if (result.ok && result.code) {
-        // Store the admin token only if one was returned (no-account mode)
-        if (result.adminToken) {
-          setAdminToken(result.code, result.adminToken);
-        }
-        setCreatedRoomCode(result.code);
-        setCreatedWithAccount(withAccount);
-        setMultiDeviceMode('create');
-      } else {
-        setError(result.message || 'Failed to create room');
+      if (!actor) {
+        throw new Error('Backend actor not available');
       }
-    } catch (err) {
-      setError('Failed to create room. Please try again.');
+
+      // Generate room code
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      const hostId = 'host_' + Date.now();
+
+      const result = await actor.createRoomV2(code, hostId, withAccount);
+
+      if (result.__kind__ === 'error') {
+        setError(result.error.message || 'Failed to create room');
+        return;
+      }
+
+      const { room, admin_token } = result.success;
+
+      // Store admin token if provided (no-account room)
+      if (admin_token) {
+        setAdminToken(room.code, admin_token);
+      }
+
+      setCreatedRoomCode(room.code);
+      setCreatedWithAccount(withAccount);
+    } catch (err: any) {
+      console.error('Failed to create room:', err);
+      setError(err.message || 'Failed to create room. Please try again.');
     } finally {
-      setIsCreatingRoom(false);
+      setIsCreatingWithAccount(false);
+      setIsCreatingWithoutAccount(false);
     }
   };
 
   const handleJoinRoom = async () => {
-    if (!joinRoomCode.trim()) {
-      setError('Please enter a room code');
-      return;
-    }
     setIsJoiningRoom(true);
     setError(null);
+
     try {
-      const result = await getRoomByCode(actor, joinRoomCode.trim());
-      if (result.ok) {
-        // Store the admin token if provided
-        if (joinAdminToken.trim()) {
-          setAdminToken(joinRoomCode.trim(), joinAdminToken.trim());
-        }
-        setRoomCode(joinRoomCode.trim());
-        setMultiDeviceMode('join');
-      } else {
-        setError(result.message || 'Failed to join room');
+      if (!actor) {
+        throw new Error('Backend actor not available');
       }
-    } catch (err) {
-      setError('Failed to join room. Please try again.');
+
+      const room = await actor.getRoomByCode(joinRoomCode.toUpperCase().trim());
+
+      if (!room) {
+        setError('Room not found. Please check the code.');
+        return;
+      }
+
+      // Navigate to display page
+      navigate({ to: `/room/${room.code}/display` });
+    } catch (err: any) {
+      console.error('Failed to join room:', err);
+      setError(err.message || 'Failed to join room. Please try again.');
     } finally {
       setIsJoiningRoom(false);
     }
   };
 
-  const handleNavigateToHost = () => {
-    const code = createdRoomCode || roomCode;
-    if (code) {
-      navigate({ to: '/room/$roomCode/host', params: { roomCode: code } });
+  const handleGoToHost = () => {
+    if (createdRoomCode) {
+      navigate({ to: `/room/${createdRoomCode}/host` });
     }
   };
 
-  const handleNavigateToDisplay = () => {
-    const code = createdRoomCode || roomCode;
-    if (code) {
-      navigate({ to: '/room/$roomCode/display', params: { roomCode: code } });
+  const handleGoToDisplay = () => {
+    if (createdRoomCode) {
+      navigate({ to: `/room/${createdRoomCode}/display` });
     }
   };
-
-  const handleBackToStart = () => {
-    setMultiDeviceMode('none');
-    setCreatedRoomCode(null);
-    setCreatedWithAccount(false);
-    setRoomCode('');
-    setJoinRoomCode('');
-    setJoinAdminToken('');
-    setError(null);
-  };
-
-  // Show room navigation after successful create/join
-  if (multiDeviceMode === 'create' && createdRoomCode) {
-    return (
-      <div className="max-w-2xl mx-auto space-y-8 pb-8">
-        <div className="text-center space-y-4 pt-8">
-          <h2 className="text-4xl font-bold tracking-tight">Room Created</h2>
-          <p className="text-lg text-muted-foreground">
-            Share this code with other devices
-          </p>
-        </div>
-
-        <RoomCodeDisplay code={createdRoomCode} />
-
-        {createdWithAccount ? (
-          <Alert>
-            <Lock className="h-4 w-4" />
-            <AlertDescription>
-              You are the room owner. You can manage the game without a scorer token.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <Alert>
-            <Lock className="h-4 w-4" />
-            <AlertDescription>
-              Your scorer token has been saved on this device. You can use Host / Scorer to manage the game.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Choose Your Role</CardTitle>
-              <CardDescription>
-                Select how you want to use this device
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                onClick={handleNavigateToHost}
-                className="w-full h-16 text-lg"
-                size="lg"
-              >
-                <Users className="h-6 w-6 mr-3" />
-                Host / Scorer
-              </Button>
-              <Button
-                onClick={handleNavigateToDisplay}
-                variant="outline"
-                className="w-full h-16 text-lg"
-                size="lg"
-              >
-                <Tv className="h-6 w-6 mr-3" />
-                Display / TV
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Button
-            onClick={handleBackToStart}
-            variant="ghost"
-            className="w-full"
-          >
-            Back to Start
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (multiDeviceMode === 'join' && roomCode) {
-    return (
-      <div className="max-w-2xl mx-auto space-y-8 pb-8">
-        <div className="text-center space-y-4 pt-8">
-          <h2 className="text-4xl font-bold tracking-tight">Joined Room</h2>
-          <p className="text-lg text-muted-foreground">
-            Room code: <span className="font-mono font-bold">{roomCode}</span>
-          </p>
-        </div>
-
-        {joinAdminToken.trim() && (
-          <Alert>
-            <Lock className="h-4 w-4" />
-            <AlertDescription>
-              Your scorer token has been saved on this device. You can use Host / Scorer to manage the game.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Choose Your Role</CardTitle>
-              <CardDescription>
-                Select how you want to use this device
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                onClick={handleNavigateToHost}
-                className="w-full h-16 text-lg"
-                size="lg"
-              >
-                <Users className="h-6 w-6 mr-3" />
-                Host / Scorer
-              </Button>
-              <Button
-                onClick={handleNavigateToDisplay}
-                variant="outline"
-                className="w-full h-16 text-lg"
-                size="lg"
-              >
-                <Tv className="h-6 w-6 mr-3" />
-                Display / TV
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Button
-            onClick={handleBackToStart}
-            variant="ghost"
-            className="w-full"
-          >
-            Back to Start
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 pb-8">
-      <div className="text-center space-y-4 pt-8">
-        <h2 className="text-4xl font-bold tracking-tight">Start New Game</h2>
-        <p className="text-lg text-muted-foreground">
-          Configure your game settings
-        </p>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Start a Game</h1>
+        <p className="text-muted-foreground">Choose how you want to play</p>
       </div>
 
-      <div className="space-y-8">
-        {/* Multi-device Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Multi-Device Mode</CardTitle>
-            <CardDescription>
-              Play across multiple devices with live sync
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-4">
-              {/* Create Room Options */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Create Room</Label>
-                <div className="grid grid-cols-1 gap-3">
-                  {isAuthenticated && (
-                    <Button
-                      onClick={() => handleCreateRoom(true)}
-                      disabled={isCreatingRoom}
-                      variant="default"
-                      className="h-16 text-base justify-start"
-                      size="lg"
-                    >
-                      <Users className="h-5 w-5 mr-3" />
-                      <div className="text-left">
-                        <div className="font-semibold">Create with Account</div>
-                        <div className="text-xs opacity-80">You'll be the room owner</div>
-                      </div>
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => handleCreateRoom(false)}
-                    disabled={isCreatingRoom}
-                    variant="outline"
-                    className="h-16 text-base justify-start"
-                    size="lg"
-                  >
-                    <Lock className="h-5 w-5 mr-3" />
-                    <div className="text-left">
-                      <div className="font-semibold">Create without Account</div>
-                      <div className="text-xs opacity-80">Get a scorer token instead</div>
-                    </div>
-                  </Button>
-                </div>
+      {/* Single Device Mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Play className="h-5 w-5" />
+            Single Device
+          </CardTitle>
+          <CardDescription>Play on this device only</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Game Mode</Label>
+            <RadioGroup value={mode.toString()} onValueChange={(v) => setMode(Number(v) as 301 | 501)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="301" id="mode-301" />
+                <Label htmlFor="mode-301" className="font-normal cursor-pointer">
+                  301
+                </Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="501" id="mode-501" />
+                <Label htmlFor="mode-501" className="font-normal cursor-pointer">
+                  501
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
 
-              <Separator />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="double-out">Double Out</Label>
+            <Switch id="double-out" checked={doubleOut} onCheckedChange={setDoubleOut} />
+          </div>
 
-              {/* Join Room */}
+          <Separator />
+
+          <div className="space-y-3">
+            <Label>Players ({players.length}/4)</Label>
+            {players.map((player, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  placeholder={`Player ${index + 1}`}
+                  value={player}
+                  onChange={(e) => handlePlayerNameChange(index, e.target.value)}
+                />
+                {players.length > 1 && (
+                  <Button variant="outline" size="icon" onClick={() => handleRemovePlayer(index)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            {players.length < 4 && (
+              <Button variant="outline" onClick={handleAddPlayer} className="w-full">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Player
+              </Button>
+            )}
+          </div>
+
+          <Button onClick={handleStartGame} className="w-full" size="lg">
+            <Play className="mr-2 h-4 w-4" />
+            Start Game
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Multi-Device Mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Multi-Device
+          </CardTitle>
+          <CardDescription>Use multiple devices for scoring and display</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {multiDeviceMode === 'none' && (
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={() => setMultiDeviceMode('create')} className="h-auto py-4">
+                <div className="flex flex-col items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  <span>Create Room</span>
+                </div>
+              </Button>
+              <Button variant="outline" onClick={() => setMultiDeviceMode('join')} className="h-auto py-4">
+                <div className="flex flex-col items-center gap-2">
+                  <Tv className="h-5 w-5" />
+                  <span>Join Room</span>
+                </div>
+              </Button>
+            </div>
+          )}
+
+          {multiDeviceMode === 'create' && !createdRoomCode && (
+            <div className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-3">
-                <Label className="text-base font-semibold">Join Existing Room</Label>
-                <Input
-                  type="text"
-                  placeholder="Enter room code"
-                  value={joinRoomCode}
-                  onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
-                  className="h-12 text-base font-mono"
-                  maxLength={6}
-                />
-                <Input
-                  type="text"
-                  placeholder="Scorer token (optional)"
-                  value={joinAdminToken}
-                  onChange={(e) => setJoinAdminToken(e.target.value)}
-                  className="h-12 text-sm font-mono"
-                />
                 <Button
-                  onClick={handleJoinRoom}
-                  disabled={isJoiningRoom || !joinRoomCode.trim()}
-                  className="w-full h-12"
+                  onClick={() => handleCreateRoom(true)}
+                  disabled={isCreatingWithAccount || isCreatingWithoutAccount || !isAuthenticated}
+                  className="w-full"
                   size="lg"
                 >
-                  {isJoiningRoom ? 'Joining...' : 'Join Room'}
+                  {isCreatingWithAccount ? (
+                    <>Creating...</>
+                  ) : (
+                    <>
+                      <Lock className="mr-2 h-4 w-4" />
+                      Create with Account
+                    </>
+                  )}
                 </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Separator />
+                {!isAuthenticated && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Sign in to create a room with your account.{' '}
+                      <button
+                        onClick={() => navigate({ to: '/login' })}
+                        className="underline font-medium hover:text-foreground"
+                      >
+                        Sign in now
+                      </button>
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-        {/* Local Game Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Local Game</CardTitle>
-            <CardDescription>
-              Play on this device only
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Game Mode */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Game Mode</Label>
-              <RadioGroup
-                value={mode.toString()}
-                onValueChange={(value) => setMode(parseInt(value) as 301 | 501)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="301" id="mode-301" />
-                  <Label htmlFor="mode-301" className="cursor-pointer">301</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="501" id="mode-501" />
-                  <Label htmlFor="mode-501" className="cursor-pointer">501</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* Double Out */}
-            <div className="flex items-center justify-between">
-              <Label htmlFor="double-out" className="text-base font-semibold">
-                Double Out
-              </Label>
-              <Switch
-                id="double-out"
-                checked={doubleOut}
-                onCheckedChange={setDoubleOut}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Players */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Players</Label>
                 <Button
-                  onClick={handleAddPlayer}
-                  disabled={players.length >= 4}
+                  onClick={() => handleCreateRoom(false)}
+                  disabled={isCreatingWithAccount || isCreatingWithoutAccount}
                   variant="outline"
-                  size="sm"
-                  className="gap-2"
+                  className="w-full"
+                  size="lg"
                 >
-                  <UserPlus className="h-4 w-4" />
-                  Add Player
+                  {isCreatingWithoutAccount ? (
+                    <>Creating...</>
+                  ) : (
+                    <>
+                      <Users className="mr-2 h-4 w-4" />
+                      Create without account
+                    </>
+                  )}
                 </Button>
               </div>
+
+              <Button variant="ghost" onClick={() => setMultiDeviceMode('none')} className="w-full">
+                Back
+              </Button>
+            </div>
+          )}
+
+          {multiDeviceMode === 'create' && createdRoomCode && (
+            <div className="space-y-4">
+              <RoomCodeDisplay code={createdRoomCode} />
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {createdWithAccount
+                    ? 'Room created with your account. You can manage it from any device where you are signed in.'
+                    : 'Room created. Keep this code safe - you will need it to manage the game.'}
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button onClick={handleGoToHost} className="w-full">
+                  <Users className="mr-2 h-4 w-4" />
+                  Host / Scorer
+                </Button>
+                <Button onClick={handleGoToDisplay} variant="outline" className="w-full">
+                  <Tv className="mr-2 h-4 w-4" />
+                  Display / TV
+                </Button>
+              </div>
+
+              <Button variant="ghost" onClick={() => {
+                setCreatedRoomCode(null);
+                setMultiDeviceMode('none');
+              }} className="w-full">
+                Create Another Room
+              </Button>
+            </div>
+          )}
+
+          {multiDeviceMode === 'join' && (
+            <div className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
               <div className="space-y-2">
-                {players.map((player, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder={`Player ${index + 1}`}
-                      value={player}
-                      onChange={(e) => handlePlayerNameChange(index, e.target.value)}
-                      className="h-12"
-                    />
-                    {players.length > 1 && (
-                      <Button
-                        onClick={() => handleRemovePlayer(index)}
-                        variant="ghost"
-                        size="icon"
-                        className="h-12 w-12 shrink-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                <Label htmlFor="join-code">Room Code</Label>
+                <Input
+                  id="join-code"
+                  placeholder="Enter 6-character code"
+                  value={joinRoomCode}
+                  onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  className="text-center text-lg tracking-widest font-mono"
+                />
               </div>
-            </div>
 
-            <Button
-              onClick={handleStartGame}
-              className="w-full h-14 text-lg gap-2"
-              size="lg"
-            >
-              <Play className="h-5 w-5" />
-              Start Game
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+              <Button
+                onClick={handleJoinRoom}
+                disabled={joinRoomCode.length !== 6 || isJoiningRoom}
+                className="w-full"
+                size="lg"
+              >
+                {isJoiningRoom ? 'Joining...' : 'Join Room'}
+              </Button>
+
+              <Button variant="ghost" onClick={() => setMultiDeviceMode('none')} className="w-full">
+                Back
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

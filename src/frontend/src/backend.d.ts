@@ -57,6 +57,17 @@ export interface Room {
     owner_user_id?: Principal;
     hostId: string;
 }
+export interface HealthStatus {
+    ok: boolean;
+    httpCode: number;
+    components: Array<HealthCheck>;
+    message: string;
+}
+export interface WhoAmI {
+    principal: Principal;
+    user?: User;
+    authenticated: boolean;
+}
 export interface HealthCheck {
     name: string;
     healthy: boolean;
@@ -67,12 +78,16 @@ export interface GoogleOAuthConfig {
     frontendOAuthRedirectPath: string;
     redirectPath: string;
 }
-export interface HealthStatus {
-    ok: boolean;
-    httpCode: number;
-    components: Array<HealthCheck>;
-    message: string;
-}
+export type RoomCreateResult = {
+    __kind__: "error";
+    error: RoomCreationError;
+} | {
+    __kind__: "success";
+    success: {
+        admin_token?: string;
+        room: Room;
+    };
+};
 export interface PlayerGameStats {
     id: bigint;
     userId?: string;
@@ -94,6 +109,10 @@ export interface ShotEvent {
     turnId: bigint;
     target: bigint;
     points: bigint;
+}
+export interface RoomCreationError {
+    code: string;
+    message: string;
 }
 export interface Turn {
     id: bigint;
@@ -142,10 +161,7 @@ export interface backendInterface {
     addPlayer(gameId: bigint, roomId: bigint, displayName: string, userId: string | null, isHost: boolean, adminToken: AdminToken | null): Promise<Player>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createGame(roomId: bigint, adminToken: AdminToken | null): Promise<Game>;
-    createRoomV2(code: string, hostId: string, create_with_account: boolean): Promise<{
-        admin_token?: string;
-        room: Room;
-    }>;
+    createRoomV2(code: string, hostId: string, create_with_account: boolean): Promise<RoomCreateResult>;
     createShotEvent(turnId: bigint, target: bigint, points: bigint, multiplier: bigint, adminToken: AdminToken | null): Promise<ShotEvent>;
     createTurn(gameId: bigint, playerId: bigint, turnIndex: bigint, adminToken: AdminToken | null): Promise<Turn>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -174,4 +190,5 @@ export interface backendInterface {
     setGameWinner(gameId: bigint, playerId: bigint, adminToken: AdminToken | null): Promise<void>;
     updateGameStatus(gameId: bigint, newStatus: GameStatus, adminToken: AdminToken | null): Promise<void>;
     updatePlayerRemaining(playerId: bigint, newRemaining: bigint, adminToken: AdminToken | null): Promise<void>;
+    whoami(): Promise<WhoAmI>;
 }

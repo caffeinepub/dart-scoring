@@ -8,7 +8,6 @@ This guide covers deploying the Dart Scoring application on the Internet Compute
 - [Local Development](#local-development)
 - [Production Deployment](#production-deployment)
 - [Health Check Verification](#health-check-verification)
-- [Google OAuth Endpoint Verification](#google-oauth-endpoint-verification)
 - [Same-Origin API Architecture](#same-origin-api-architecture)
 - [Reverse Proxy Configuration](#reverse-proxy-configuration)
 - [Troubleshooting](#troubleshooting)
@@ -28,4 +27,3 @@ Before deploying, ensure you have the following installed:
 ### 1. Initial Setup
 
 Clone the repository and install dependencies:
-

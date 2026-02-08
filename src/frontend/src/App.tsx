@@ -10,9 +10,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import GameDetailsPage from './pages/GameDetailsPage';
-import GoogleOAuthRedirectPage from './pages/GoogleOAuthRedirectPage';
 import AppLayout from './layouts/AppLayout';
-import { OAuthTokenSessionProvider } from './hooks/useOAuthTokenSession';
 
 // Create root route with layout
 const rootRoute = createRootRoute({
@@ -101,19 +99,6 @@ const gameDetailsRoute = createRoute({
   component: GameDetailsPage,
 });
 
-// Create Google OAuth redirect route
-const googleOAuthRedirectRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/google/oauth-redirect',
-  component: GoogleOAuthRedirectPage,
-  validateSearch: (search: Record<string, unknown>): { token?: string; error?: string } => {
-    return {
-      token: typeof search.token === 'string' ? search.token : undefined,
-      error: typeof search.error === 'string' ? search.error : undefined,
-    };
-  },
-});
-
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -127,7 +112,6 @@ const routeTree = rootRoute.addChildren([
   registerRoute,
   profileRoute,
   gameDetailsRoute,
-  googleOAuthRedirectRoute,
 ]);
 
 // Create router
@@ -141,11 +125,7 @@ declare module '@tanstack/react-router' {
 }
 
 function App() {
-  return (
-    <OAuthTokenSessionProvider>
-      <RouterProvider router={router} />
-    </OAuthTokenSessionProvider>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;

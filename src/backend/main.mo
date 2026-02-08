@@ -5,11 +5,12 @@ import Text "mo:core/Text";
 import Time "mo:core/Time";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
+import Blob "mo:core/Blob";
+import Array "mo:core/Array";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-// With-clause applies standard migration from old to new actor state schema.
 actor {
   public type GoogleOAuthConfig = {
     clientId : Text;
@@ -173,6 +174,12 @@ actor {
     win : Bool;
   };
 
+  public type WhoAmI = {
+    principal : Principal;
+    user : ?User;
+    authenticated : Bool;
+  };
+
   // Persistent storage
   let rooms = Map.empty<Nat, Room>();
   let games = Map.empty<Nat, Game>();
@@ -185,7 +192,6 @@ actor {
   let usernameIndex = Map.empty<Text, Text>();
   let userStats = Map.empty<Text, UserStats>();
   let userProfiles = Map.empty<Principal, UserProfile>();
-  // New OAuth uniqueness index for (provider, subject) pairs
   let oauthIndex = Map.empty<Text, Text>();
 
   // ID Sequencer
@@ -198,6 +204,25 @@ actor {
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+
+  // Simple hash function for admin tokens (server-side hashing)
+  func hashToken(token : Text) : Text {
+    let blob = token.encodeUtf8();
+    let bytes = blob.toArray();
+    var hash : Nat32 = 2166136261; // FNV offset basis
+    for (byte in bytes.vals()) {
+      hash := hash ^ Nat32.fromNat(Nat8.toNat(byte));
+      hash := hash *% 16777619; // FNV prime
+    };
+    Nat32.toText(hash);
+  };
+
+  // Generate a random-looking token based on room ID and timestamp
+  func generateAdminToken(roomId : Nat) : Text {
+    let timestamp = Time.now();
+    let combined = roomId.toText() # ":" # Int.toText(timestamp);
+    "admin_" # hashToken(combined);
+  };
 
   // Stats calculation logic
   func calculateStatsForUser(userId : Text) : UserStats {
@@ -334,17 +359,16 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // --- Added me-like query endpoint (allowing any authenticated principal) ---
   public query ({ caller }) func getMyProfile() : async ?UserProfile {
-    if (caller == Principal.fromText("2vxsx-fae")) {
-      Runtime.trap("Unauthorized: Anonymous principals cannot view profiles");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view profiles");
     };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getMyStats() : async ?UserStats {
-    if (caller == Principal.fromText("2vxsx-fae")) {
-      Runtime.trap("Unauthorized: Anonymous principals cannot view stats");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view stats");
     };
     userStats.get(caller.toText());
   };
@@ -398,8 +422,8 @@ actor {
   };
 
   public shared ({ caller }) func register(email : Text, username : Text) : async User {
-    if (caller == Principal.fromText("2vxsx-fae")) {
-      Runtime.trap("Anonymous registration is not allowed. Please log in with Internet Identity.");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can register. Please log in with Internet Identity.");
     };
 
     switch (users.get(caller.toText())) {
@@ -421,14 +445,12 @@ actor {
       caller.toText(),
       email,
       username,
-      null, // No oauth_provider
-      null, // No oauth_subject
-      false // email_verified
+      null,
+      null,
+      false
     );
 
     addUserToPersistentStorage(user);
-
-    // Assign user role to newly registered user
     AccessControl.assignRole(accessControlState, caller, caller, #user);
 
     user;
@@ -437,7 +459,8 @@ actor {
   func validateAdminToken(room : Room, providedToken : AdminToken) : () {
     switch (room.admin_token_hash) {
       case (?storedHash) {
-        if (storedHash != providedToken) {
+        let providedHash = hashToken(providedToken);
+        if (storedHash != providedHash) {
           Runtime.trap("Invalid admin token provided.");
         };
       };
@@ -463,20 +486,29 @@ actor {
     };
   };
 
+  public type RoomCreationError = {
+    code : Text;
+    message : Text;
+  };
+
+  public type RoomCreateResult = {
+    #success : { room : Room; admin_token : ?Text };
+    #error : RoomCreationError;
+  };
+
   public shared ({ caller }) func createRoomV2(
     code : Text,
     hostId : Text,
     create_with_account : Bool
-  ) : async {
-    room : Room;
-    admin_token : ?Text;
-  } {
+  ) : async RoomCreateResult {
     let roomId = getNextId();
 
     if (create_with_account) {
-      // Creating room with account requires user permission
       if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-        Runtime.trap("Unauthorized: Only authenticated users can create rooms with accounts");
+        return #error({
+          code = "not_authenticated";
+          message = "Log in before creating a room with account!";
+        });
       };
 
       let room : Room = {
@@ -489,12 +521,10 @@ actor {
       };
       rooms.add(roomId, room);
 
-      { room; admin_token = null };
+      return #success({ room; admin_token = null });
     } else {
-      // Anonymous room creation - anyone including guests can create
-      // No authorization check needed for anonymous rooms
-      let raw_token = "token_should_be_hashed_on_frontend";
-      let token_hash = raw_token;
+      let raw_token = generateAdminToken(roomId);
+      let token_hash = hashToken(raw_token);
 
       let room : Room = {
         id = roomId;
@@ -506,12 +536,11 @@ actor {
       };
       rooms.add(roomId, room);
 
-      { room; admin_token = ?raw_token };
+      return #success({ room; admin_token = ?raw_token });
     };
   };
 
   public query func getRoomByCode(code : Text) : async ?Room {
-    // Guests can view rooms (needed to join games)
     var foundRoom : ?Room = null;
     for ((_, room) in rooms.toArray().values()) {
       if (Text.equal(room.code, code)) {
@@ -542,7 +571,6 @@ actor {
   };
 
   public query func getGamesByRoom(roomId : Nat) : async [Game] {
-    // Guests can view games (needed to participate)
     let gamesList = List.empty<Game>();
     for ((id, game) in games.entries()) {
       if (game.roomId == roomId) {
@@ -553,7 +581,6 @@ actor {
   };
 
   public query func getGame(gameId : Nat) : async ?Game {
-    // Guests can view games (needed to participate)
     games.get(gameId);
   };
 
@@ -682,7 +709,6 @@ actor {
   };
 
   public query func getPlayerGameStatsByGame(gameId : Nat) : async [PlayerGameStats] {
-    // Guests can view game stats (needed to see game results)
     let statsList = List.empty<PlayerGameStats>();
     for ((id, stats) in playerGameStats.entries()) {
       if (stats.gameId == gameId) {
@@ -736,7 +762,6 @@ actor {
   };
 
   public query func getPlayersByGame(gameId : Nat) : async [Player] {
-    // Guests can view players (needed to see game participants)
     let playersList = List.empty<Player>();
     for ((id, player) in players.entries()) {
       if (player.gameId == gameId) {
@@ -796,7 +821,6 @@ actor {
   };
 
   public query func getTurnsByGameAndIndex(gameId : Nat, turnIndex : Nat) : async [Turn] {
-    // Guests can view turns (needed to see game progress)
     let turnsList = List.empty<Turn>();
     for ((id, turn) in turns.entries()) {
       if (turn.gameId == gameId and turn.turnIndex == turnIndex) {
@@ -807,7 +831,6 @@ actor {
   };
 
   public query func getTurnsByGamePaginated(gameId : Nat, limit : Nat, offset : Nat) : async [Turn] {
-    // Guests can view turns (needed to see game progress)
     let turnsForGameList = List.empty<Turn>();
     for ((id, turn) in turns.entries()) {
       if (turn.gameId == gameId) {
@@ -827,7 +850,6 @@ actor {
   };
 
   public query func getShotEventsByTurn(turnId : Nat) : async [ShotEvent] {
-    // Guests can view shot events (needed to see game details)
     let shotEventsForTurn = List.empty<ShotEvent>();
     for ((id, shotEvent) in shotEvents.entries()) {
       if (shotEvent.turnId == turnId) {
@@ -838,7 +860,6 @@ actor {
   };
 
   public query ({ caller }) func getUserGamesParticipated(userId : Text, limit : Nat, offset : Nat, mode : ?Text, from : ?Nat, to : ?Nat) : async [GameWithStatistics] {
-    // Users can only view their own games, admins can view any
     if (caller.toText() != userId and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own games");
     };
@@ -981,5 +1002,13 @@ actor {
     # "&access_type=" # accessType
     # "&prompt=" # prompt
     # "&nonce=" # nonce;
+  };
+
+  public query ({ caller }) func whoami() : async WhoAmI {
+    {
+      principal = caller;
+      user = users.get(caller.toText());
+      authenticated = caller != Principal.fromText("2vxsx-fae");
+    };
   };
 };

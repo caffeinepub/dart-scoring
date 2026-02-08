@@ -1,93 +1,173 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add minimal same-origin /api route handlers to prevent Not Found responses",
+  "title": "Switch frontend authentication to Internet Identity only and use II identity for authenticated backend calls",
   "requirements": [
     {
-      "id": "REQ-203",
-      "summary": "Implement GET /api/health handler returning HTTP 200 JSON body exactly { \"ok\": true }.",
+      "id": "REQ-219",
+      "summary": "Make Internet Identity the only sign-in option on /login with a single primary “Sign in” button and remove all Google sign-in UI/copy.",
       "acceptanceCriteria": [
-        "Deploying the app makes `GET /api/health` respond with HTTP 200.",
-        "The response `Content-Type` is JSON, and the body is exactly `{ \"ok\": true }` (key name and boolean value).",
-        "`GET /api/health` is not a 404/Not Found under any environment (dev/prod)."
+        "On `/login`, the only interactive sign-in action is the button labeled exactly \"Sign in\".",
+        "No button labeled \"Continue with Google\" is shown and no click action can initiate any `/auth/google/*` navigation or redirect from the UI.",
+        "All user-facing text on `/login` remains in English."
       ],
       "file_operations": [
         {
-          "path": "frontend/app/api/health/route.ts",
-          "operation": "create",
-          "description": "If the project uses Next.js App Router (app/ directory), add a Route Handler that responds to GET with HTTP 200 and JSON body exactly `{ \"ok\": true }` and an appropriate JSON Content-Type."
-        },
-        {
-          "path": "frontend/pages/api/health.ts",
-          "operation": "create",
-          "description": "If the project uses Next.js Pages Router (pages/ directory), add an API route that responds to GET with HTTP 200 and JSON body exactly `{ \"ok\": true }` and an appropriate JSON Content-Type."
+          "path": "frontend/src/pages/LoginPage.tsx",
+          "operation": "modify",
+          "description": "Remove any Google sign-in UI (including the disabled/placeholder Google button, divider, and related icon imports) so the only interactive sign-in control is a single primary button labeled exactly “Sign in”. Verify the component's usage instructions before implementing."
         }
       ]
     },
     {
-      "id": "REQ-204",
-      "summary": "Implement GET /api/auth/google/start handler that returns a 3xx redirect to a placeholder URL (not Not Found).",
+      "id": "REQ-220",
+      "summary": "Ensure the Internet Identity flow uses AuthClient login with identityProvider set to https://identity.ic0.app without editing immutable II hook files.",
       "acceptanceCriteria": [
-        "Deploying the app makes `GET /api/auth/google/start` respond with HTTP 302 (or another 3xx redirect) and a `Location` header.",
-        "`GET /api/auth/google/start` is not a 404/Not Found.",
-        "The route works under same-origin calls used by the existing frontend (`window.location.href = \"/api/auth/google/start\"`)."
+        "Clicking \"Sign in\" initiates Internet Identity authentication against `https://identity.ic0.app`.",
+        "No changes are made to immutable files under `frontend/src/hooks/useInternetIdentity.ts` / `.tsx`."
       ],
       "file_operations": [
         {
-          "path": "frontend/app/api/auth/google/start/route.ts",
-          "operation": "create",
-          "description": "If using Next.js App Router, add a Route Handler for GET that returns an HTTP redirect (302 acceptable) with a `Location` header pointing to a placeholder URL, ensuring the route is not Not Found."
-        },
-        {
-          "path": "frontend/pages/api/auth/google/start.ts",
-          "operation": "create",
-          "description": "If using Next.js Pages Router, add an API route for GET that responds with a 3xx redirect (302 acceptable) and a `Location` header pointing to a placeholder URL, ensuring the route is not Not Found."
+          "path": "frontend/vite.config.ts",
+          "operation": "modify",
+          "description": "Inject/build-time define the II identity provider value so `process.env.II_URL` resolves to `https://identity.ic0.app` at runtime (without modifying `frontend/src/hooks/useInternetIdentity.ts`)."
         }
       ]
     },
     {
-      "id": "REQ-205",
-      "summary": "Implement GET /api/auth/google/callback handler returning HTTP 200 JSON that includes the phrase \"callback reached\".",
+      "id": "REQ-221",
+      "summary": "After II login, fetch /auth/whoami via HTTP, store principal and user in centralized session state, and show a clear English error on failure.",
       "acceptanceCriteria": [
-        "Deploying the app makes `GET /api/auth/google/callback` respond with HTTP 200.",
-        "Response is JSON and includes an English message indicating the callback was reached (must include the phrase \"callback reached\").",
-        "`GET /api/auth/google/callback` is not a 404/Not Found."
+        "After Internet Identity login completes, the frontend issues `GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami`.",
+        "The frontend stores the backend-returned `principal` and `user` in a centralized session state (not scattered per-page local state).",
+        "If the `whoami` call fails, the UI shows a clear English error message and does not crash.",
+        "Backend provides an HTTP GET handler at path `/auth/whoami` that returns the caller Principal plus user/profile information in a JSON-compatible shape (non-trapping for expected cases like \"no profile yet\")."
       ],
       "file_operations": [
         {
-          "path": "frontend/app/api/auth/google/callback/route.ts",
+          "path": "frontend/src/hooks/useBackendWhoamiSession.tsx",
           "operation": "create",
-          "description": "If using Next.js App Router, add a Route Handler for GET that responds with HTTP 200 and JSON containing an English message that includes the exact phrase \"callback reached\"."
+          "description": "Add a centralized session provider/hook that (a) listens for Internet Identity authentication becoming available, (b) calls the backend `GET /auth/whoami` via the existing HTTP client, and (c) stores `principal` and `user` in one shared application state object along with loading/error flags."
         },
         {
-          "path": "frontend/pages/api/auth/google/callback.ts",
-          "operation": "create",
-          "description": "If using Next.js Pages Router, add an API route for GET that responds with HTTP 200 and JSON containing an English message that includes the exact phrase \"callback reached\"."
+          "path": "frontend/src/lib/config.ts",
+          "operation": "modify",
+          "description": "Ensure the default backend base URL resolves to `https://dart-scoring-backend-vab.caffeine.xyz` (so `GET /auth/whoami` is issued against the required absolute URL when no override is provided)."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Wrap the router with the new backend whoami session provider so the session state is global and available to the header and pages that need it."
+        },
+        {
+          "path": "frontend/src/pages/LoginPage.tsx",
+          "operation": "modify",
+          "description": "Display a clear English error state when the centralized whoami session indicates a post-login session-fetch failure (and avoid any crash paths). Verify the component's usage instructions before implementing."
         }
       ]
     },
     {
-      "id": "REQ-206",
-      "summary": "Verify whether App Router or Pages Router is used and ensure only the correct set of /api handlers is present/active at runtime.",
+      "id": "REQ-222",
+      "summary": "Refactor frontend backend-call wiring to avoid Authorization Bearer tokens and route authenticated interactions through an II-configured agent/actor; keep guest flows working with anonymous/admin-token mechanisms.",
       "acceptanceCriteria": [
-        "After deployment, the three endpoints `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback` resolve to implemented handlers (no Not Found).",
-        "No duplicate/conflicting handler implementations cause ambiguity (only the router appropriate to the project structure is used at runtime)."
+        "No frontend code path sends `Authorization: Bearer ...` to the backend (including rooms/game mutations).",
+        "Authenticated backend calls are executed through an IC agent/actor configured with the Internet Identity delegation/identity (so the backend can observe the caller Principal).",
+        "Guest/no-account flows still work without requiring Internet Identity authentication (anonymous actor or token-based guest mechanism as applicable), and failures surface as non-crashing English messages."
       ],
       "file_operations": [
         {
-          "path": "frontend/docs/deployment.md",
+          "path": "frontend/src/lib/authHeaders.ts",
           "operation": "modify",
-          "description": "Update deployment verification notes to explicitly confirm which router mode is used (App Router vs Pages Router) and to document that only one corresponding set of `/api/*` handlers should exist to avoid ambiguous routing after deployment."
+          "description": "Remove/disable any creation of `Authorization: Bearer ...` headers; keep support for the existing guest/admin-token header mechanism for no-account room mutations."
         },
         {
-          "path": "frontend/app/api/health/route.ts",
+          "path": "frontend/src/lib/roomsApi.ts",
           "operation": "modify",
-          "description": "If Pages Router is the runtime mode, remove/avoid this App Router handler from the final deployed build so it does not create duplicate/conflicting implementations; keep only the router-appropriate handler set."
+          "description": "Refactor room creation/join HTTP helpers so they no longer accept or propagate OAuth bearer tokens; keep guest/no-account flows working (including saving returned scorer/admin token when applicable)."
         },
         {
-          "path": "frontend/pages/api/health.ts",
+          "path": "frontend/src/lib/roomGameApi.ts",
           "operation": "modify",
-          "description": "If App Router is the runtime mode, remove/avoid this Pages Router handler from the final deployed build so it does not create duplicate/conflicting implementations; keep only the router-appropriate handler set."
+          "description": "Remove any dependency on OAuth bearer tokens for room/game HTTP mutations; ensure guest flows continue to use the admin-token mechanism as needed, and ensure error messages remain non-crashing and in English."
+        },
+        {
+          "path": "frontend/src/pages/StartGamePage.tsx",
+          "operation": "modify",
+          "description": "Switch “Create with Account” to use the existing Internet Identity-backed actor (via the immutable `useActor` hook) so the backend can observe the caller Principal; keep “Create without account” using the guest/no-account flow."
+        }
+      ]
+    },
+    {
+      "id": "REQ-223",
+      "summary": "Update the header to show Profile plus principal/username when logged in and provide Sign out that logs out via AuthClient and clears all session state and cached queries.",
+      "acceptanceCriteria": [
+        "When logged out, the header shows a \"Sign in\" action that navigates to `/login` (or triggers the expected login flow).",
+        "When logged in, the header displays \"Profile\" and also displays the user’s principal string and/or username clearly.",
+        "Clicking \"Sign out\" logs out of Internet Identity (AuthClient logout), clears the stored principal/user session state, and clears cached app queries/state so authenticated data is not shown after logout.",
+        "All header user-facing text is in English."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/layouts/AppLayout.tsx",
+          "operation": "modify",
+          "description": "Enhance the top-right header area to (a) show “Profile” plus the authenticated principal string and/or username from the centralized whoami session, and (b) add a “Sign out” action that triggers the app’s sign-out flow and clears visible authenticated data. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/hooks/useSession.ts",
+          "operation": "modify",
+          "description": "Refactor sign-out to clear all centralized session state (including whoami principal/user) and clear React Query cache so authenticated data is not displayed after logout."
+        }
+      ]
+    },
+    {
+      "id": "REQ-224",
+      "summary": "Make “Create with Account” in Rooms UI available only when logged in via Internet Identity; keep “Create without account” always available.",
+      "acceptanceCriteria": [
+        "If the user is not authenticated via Internet Identity, the UI prevents selecting/using \"Create with Account\" and provides a clear English explanation (e.g., instructing to sign in).",
+        "If the user is authenticated via Internet Identity, \"Create with Account\" is enabled and performs the create-room flow successfully.",
+        "\"Create without account\" remains usable regardless of authentication state."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/StartGamePage.tsx",
+          "operation": "modify",
+          "description": "Always render “Create with Account” in the create-room section, but disable it when not authenticated via Internet Identity and show a clear English explanation with a path to sign in; enable and run the account-based create-room flow when authenticated. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-225",
+      "summary": "Remove/neutralize remaining Google OAuth frontend session handling and any dev-only Google OAuth UI so login cannot crash or display Google configuration errors.",
+      "acceptanceCriteria": [
+        "The `/login` page renders without uncaught exceptions in all states (initializing, logged out, logging in, login error).",
+        "No user-facing messages about Google login configuration (e.g., \"Google login not configured\") appear anywhere in the login experience.",
+        "No UI element triggers any Google OAuth start/callback flow."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useOAuthTokenSession.tsx",
+          "operation": "delete",
+          "description": "Remove the in-memory Google OAuth token session provider/hook implementation so no Google-token session handling remains in the app."
+        },
+        {
+          "path": "frontend/src/hooks/useSession.ts",
+          "operation": "modify",
+          "description": "Remove all Google OAuth token-related APIs/state (e.g., setOAuthToken/refresh token placeholder) so the centralized session is Internet Identity + whoami only."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Remove OAuth token provider wiring and remove any Google OAuth redirect route registration so no UI navigation can enter Google OAuth flows."
+        },
+        {
+          "path": "frontend/src/pages/GoogleOAuthRedirectPage.tsx",
+          "operation": "delete",
+          "description": "Remove the Google OAuth redirect page to eliminate any remaining Google-OAuth-specific UI surface."
+        },
+        {
+          "path": "frontend/src/pages/StartGamePage.tsx",
+          "operation": "modify",
+          "description": "Remove any remaining imports/usage of OAuth token session data and ensure all multi-device room actions work without Google OAuth tokens (guest/admin-token flow or II actor flow as applicable). Verify the component's usage instructions before implementing."
         }
       ]
     }

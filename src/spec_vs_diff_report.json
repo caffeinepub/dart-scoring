@@ -1,72 +1,76 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T21:59:15.551Z",
-  "summary": "The diff does not add any Next.js `/api/*` route handlers (App Router or Pages Router). Instead, it modifies a Motoko backend file and a project state summary, which does not satisfy the request to fix Next.js same-origin `/api` routes returning Not Found.",
+  "generatedAt": "2026-02-08T00:13:36.831Z",
+  "summary": "Diff switches much of the frontend to an Internet-Identity-based session abstraction and updates the header and login UI accordingly, but the required backend session fetch (/auth/whoami) and centralized storage of backend-returned principal/user are not evidenced. There is also evidence that Google OAuth redirect handling may still exist via a modified GoogleOAuthRedirectPage.",
   "missing_requirements": [
     {
-      "id": "REQ-203",
-      "requirement": "Implement same-origin API route handler for GET /api/health returning HTTP 200 with JSON body exactly { \"ok\": true } (not Not Found), using the appropriate Next.js router location (app/api/health/route.ts or pages/api/health.ts).",
-      "reason": "No Next.js route handler file for `/api/health` is added/modified in the diff; only `backend/main.mo` and `project_state.json` are modified.",
+      "id": "REQ-220",
+      "requirement": "Ensure the Internet Identity login flow uses the official AuthClient login with identityProvider set to https://identity.ic0.app (without editing immutable Internet Identity hook source files).",
+      "reason": "The diff shows LoginPage calling useSession().signIn() which delegates to useInternetIdentity().login(), but there is no evidence in the provided diff summary that AuthClient.login is configured with identityProvider: \"https://identity.ic0.app\" (and immutable hook files are not shown).",
       "evidence": [
-        "backend/main.mo",
-        "project_state.json"
+        "frontend/src/pages/LoginPage.tsx",
+        "frontend/src/hooks/useSession.ts"
       ]
     },
     {
-      "id": "REQ-204",
-      "requirement": "Implement same-origin API route handler for GET /api/auth/google/start that responds with an HTTP redirect (3xx) with a Location header (not Not Found), using the appropriate Next.js router location (app/api/auth/google/start/route.ts or pages/api/auth/google/start.ts).",
-      "reason": "No Next.js route handler file for `/api/auth/google/start` is added/modified in the diff; only `backend/main.mo` and `project_state.json` are modified.",
+      "id": "REQ-221",
+      "requirement": "After successful Internet Identity login, fetch the authenticated user session from backend via GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami, then store returned principal and user in centralized session state; backend must provide GET /auth/whoami returning caller Principal and user/profile info JSON-compatibly.",
+      "reason": "No evidence of an HTTP GET call to https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami in the frontend, and no evidence of centralized storage of backend-returned principal/user. Backend diff shows a WhoAmI type definition but does not show any HTTP handler at /auth/whoami in the truncated excerpt.",
       "evidence": [
-        "backend/main.mo",
-        "project_state.json"
+        "frontend/src/hooks/useSession.ts",
+        "frontend/src/pages/LoginPage.tsx",
+        "backend/main.mo"
       ]
     },
     {
-      "id": "REQ-205",
-      "requirement": "Implement same-origin API route handler for GET /api/auth/google/callback returning HTTP 200 with JSON including an English message containing the phrase \"callback reached\" (not Not Found), using the appropriate Next.js router location (app/api/auth/google/callback/route.ts or pages/api/auth/google/callback.ts).",
-      "reason": "No Next.js route handler file for `/api/auth/google/callback` is added/modified in the diff; only `backend/main.mo` and `project_state.json` are modified.",
+      "id": "REQ-222",
+      "requirement": "Refactor frontend backend-call wiring so all authenticated backend interactions use the Internet Identity identity (agent configured with AuthClient identity) and do not use Authorization: Bearer tokens; guest flows still work with clear English errors.",
+      "reason": "While several APIs now accept an `actor` from useActor and authHeaders no longer add Bearer tokens, the diff summary does not provide evidence that useActor (immutable) is configured with the AuthClient identity for authenticated calls, nor that all previous Bearer-token code paths are removed/neutralized across the app (useOAuthTokenSession.tsx is still present and modified, but its contents are not shown).",
       "evidence": [
-        "backend/main.mo",
-        "project_state.json"
+        "frontend/src/components/rooms/ClaimSeatPanel.tsx",
+        "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
+        "frontend/src/lib/authHeaders.ts",
+        "frontend/src/lib/roomGameApi.ts",
+        "frontend/src/lib/roomsApi.ts",
+        "frontend/src/hooks/useOAuthTokenSession.tsx"
       ]
     },
     {
-      "id": "REQ-206",
-      "requirement": "Verify whether the project uses Next.js App Router (/app) or Pages Router (/pages) and ensure exactly one correct set of handlers is present so the `/api/*` endpoints are reachable after deployment without duplicates/conflicts.",
-      "reason": "The diff provides no evidence of router-mode verification or placement of API handlers in either `/app/api/...` or `/pages/api/...` (no such files are added/modified).",
+      "id": "REQ-224",
+      "requirement": "Update Rooms UI so \"Create with Account\" is available/functional only when logged in via Internet Identity; \"Create without account\" remains always available for guests, with a clear English explanation when blocked.",
+      "reason": "StartGamePage imports useSession() and tracks multi-device room creation state, but the shown/truncated portion does not include any UI gating/disable logic for \"Create with Account\" based on isAuthenticated, nor an explanation message when unauthenticated.",
       "evidence": [
-        "backend/main.mo",
-        "project_state.json"
+        "frontend/src/pages/StartGamePage.tsx"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Added/expanded Google OAuth configuration/state data structures and in-backend OAuth state storage (e.g., GoogleOAuthConfig, OAuthStateValue, oauthStates) beyond the requested minimal placeholder API route handlers.",
-      "reason": "The BuildRequest explicitly scopes to minimal `/api/*` route handlers and states that implementing the real Google OAuth flow (state handling, token exchange, user mapping) is out of scope.",
+      "description": "Google OAuth redirect page remains present/modified (potentially preserving Google OAuth redirect handling).",
+      "reason": "Non-goals explicitly prohibit re-enabling Google OAuth login or adding new Google OAuth endpoints/redirect handling. The diff includes a modified GoogleOAuthRedirectPage.tsx, which suggests Google OAuth redirect handling still exists in some form.",
       "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
-      "description": "Introduced/expanded complex health/status modeling types (HealthCheck, HealthStatus with components/message/httpCode) rather than a minimal `{ \"ok\": true }` JSON response for `/api/health`.",
-      "reason": "REQ-203 requires the `/api/health` response body to be exactly `{ \"ok\": true }` from a Next.js API route handler; the diff instead shows additional backend types without evidence of the required Next.js route implementation.",
-      "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
-      "description": "Project state summary claims an architecture change to expose all backend endpoints under `/api/...` and remove references to an external backend domain.",
-      "reason": "The BuildRequest asks only to fix server-side `/api/*` routing to avoid Not Found with minimal handlers and explicitly avoids broader changes; the diff shows a broader architecture summary change without corresponding Next.js handler additions.",
-      "evidence": [
-        "project_state.json"
+        "frontend/src/pages/GoogleOAuthRedirectPage.tsx"
       ]
     }
   ],
-  "confidence": 0.78,
+  "confidence": 0.68,
   "changed_files": [
     "backend/main.mo",
+    "frontend-file-summaries.txt",
+    "frontend/src/App.tsx",
+    "frontend/src/components/rooms/ClaimSeatPanel.tsx",
+    "frontend/src/components/rooms/HostLiveScoringPanel.tsx",
+    "frontend/src/hooks/useOAuthTokenSession.tsx",
+    "frontend/src/hooks/useSession.ts",
+    "frontend/src/layouts/AppLayout.tsx",
+    "frontend/src/lib/authHeaders.ts",
+    "frontend/src/lib/roomGameApi.ts",
+    "frontend/src/lib/roomsApi.ts",
+    "frontend/src/pages/GoogleOAuthRedirectPage.tsx",
+    "frontend/src/pages/LoginPage.tsx",
+    "frontend/src/pages/RoomHostScorerPage.tsx",
+    "frontend/src/pages/StartGamePage.tsx",
     "project_state.json"
   ]
 }

@@ -1,4 +1,134 @@
 {
   "kind": "feature_evidence_report",
-  "features": []
+  "features": [
+    {
+      "featureId": "feature-update-the-login-page-so-internet-identity-is-the-only-available-sign-in-method-keep-a-single-primary-button-labeled-sign-in-and-remove-any-active-google-sign-in-option-and-any-ui-copy-that-suggests-google-sign-in-is-available",
+      "featureTitle": "Update the `/login` page so Internet Identity is the only available sign-in method: keep a single primary button labeled \"Sign in\" and remove any active Google sign-in option and any UI copy that suggests Google sign-in is available.",
+      "files": [
+        "frontend/src/pages/LoginPage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-219"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-after-a-successful-internet-identity-login-fetch-the-authenticated-user-session-from-the-backend-by-calling-get-https-dart-scoring-backend-vab-caffeine-xyz-auth-whoami-then-store-the-returned-principal-and-user-in-application-state-and-treat-the-session-as-authenticated",
+      "featureTitle": "After a successful Internet Identity login, fetch the authenticated user session from the backend by calling: `GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami`, then store the returned `principal` and `user` in application state and treat the session as authenticated.",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/pages/LoginPage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-221"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-refactor-frontend-backend-call-wiring-so-all-authenticated-backend-interactions-use-the-internet-identity-identity-agent-configured-with-the-authclient-identity-so-the-backend-can-read-the-caller-principal-do-not-use-authorization-bearer-tokens-for-any-backend-requests",
+      "featureTitle": "Refactor frontend backend-call wiring so all authenticated backend interactions use the Internet Identity identity (agent configured with the AuthClient identity) so the backend can read the caller Principal; do not use `Authorization: Bearer` tokens for any backend requests.",
+      "files": [
+        "frontend/src/lib/authHeaders.ts",
+        "frontend/src/lib/roomGameApi.ts",
+        "frontend/src/lib/roomsApi.ts",
+        "frontend/src/pages/StartGamePage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-222"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-the-app-header-top-right-to-show-profile-plus-the-authenticated-principal-and-or-username-when-logged-in-and-add-a-sign-out-action-that-logs-out-via-authclient-and-clears-all-session-state",
+      "featureTitle": "Update the app header (top-right) to show \"Profile\" plus the authenticated principal and/or username when logged in, and add a \"Sign out\" action that logs out via AuthClient and clears all session state.",
+      "files": [
+        "frontend/src/hooks/useSession.ts",
+        "frontend/src/layouts/AppLayout.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-223"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-the-multi-device-rooms-ui-so-create-with-account-is-available-and-functional-only-when-the-user-is-logged-in-via-internet-identity-create-without-account-remains-always-available-for-guests",
+      "featureTitle": "Update the multi-device Rooms UI so \"Create with Account\" is available and functional only when the user is logged in via Internet Identity; \"Create without account\" remains always available for guests.",
+      "files": [
+        "frontend/src/pages/StartGamePage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-224"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-remove-or-neutralize-any-remaining-google-oauth-specific-frontend-session-handling-that-could-affect-the-login-experience-including-any-dev-only-google-oauth-testing-ui-so-the-login-page-cannot-crash-or-show-google-login-related-configuration-errors",
+      "featureTitle": "Remove or neutralize any remaining Google-OAuth-specific frontend session handling that could affect the login experience (including any dev-only Google OAuth testing UI) so the login page cannot crash or show Google-login-related configuration errors.",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/hooks/useOAuthTokenSession.tsx",
+        "frontend/src/hooks/useSession.ts",
+        "frontend/src/pages/GoogleOAuthRedirectPage.tsx",
+        "frontend/src/pages/StartGamePage.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-225"
+      ],
+      "confidence": "high"
+    }
+  ]
 }

@@ -1,4 +1,10 @@
 /**
+ * Room operations using backend actor (Internet Computer canister)
+ */
+
+import { getAdminToken } from './adminTokenStorage';
+
+/**
  * Generate a random 6-character room code
  */
 function generateRoomCode(): string {
@@ -19,7 +25,7 @@ export interface RoomResult {
 
 /**
  * Create a new room with optional account-based ownership
- * Note: This is a standalone async function, not a hook
+ * Uses backend actor createRoomV2
  */
 export async function createRoom(actor: any, createWithAccount: boolean): Promise<RoomResult> {
   try {
@@ -28,26 +34,30 @@ export async function createRoom(actor: any, createWithAccount: boolean): Promis
     }
 
     const code = generateRoomCode();
-    const hostId = 'host_' + Date.now(); // Temporary host ID
-    
+    const hostId = 'host_' + Date.now();
+
     const result = await actor.createRoomV2(code, hostId, createWithAccount);
-    
-    // Backend returns { room: Room, admin_token?: string }
-    return { 
-      ok: true, 
-      code: result.room.code, 
-      adminToken: result.admin_token || undefined 
+
+    if (result.__kind__ === 'error') {
+      return { ok: false, message: result.error.message || 'Failed to create room' };
+    }
+
+    const { room, admin_token } = result.success;
+
+    return {
+      ok: true,
+      code: room.code,
+      adminToken: admin_token || undefined,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create room:', error);
-    return { ok: false, message: 'Failed to create room' };
+    return { ok: false, message: error.message || 'Network error. Please try again.' };
   }
 }
 
 /**
  * Fetch and validate a room by code
- * Note: This is a standalone async function, not a hook
- * This is a read-only operation and does not require an admin token
+ * Uses backend actor getRoomByCode
  */
 export async function getRoomByCode(actor: any, code: string): Promise<RoomResult> {
   try {
@@ -56,14 +66,14 @@ export async function getRoomByCode(actor: any, code: string): Promise<RoomResul
     }
 
     const room = await actor.getRoomByCode(code);
-    
+
     if (!room) {
       return { ok: false, message: 'Room not found. Please check the code.' };
     }
 
-    return { ok: true, code };
-  } catch (error) {
-    console.error('Failed to fetch room:', error);
-    return { ok: false, message: 'Failed to fetch room' };
+    return { ok: true, code: room.code };
+  } catch (error: any) {
+    console.error('Failed to get room:', error);
+    return { ok: false, message: error.message || 'Network error. Please try again.' };
   }
 }

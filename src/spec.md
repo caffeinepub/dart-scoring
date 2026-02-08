@@ -1,12 +1,15 @@
 # Specification
 
 ## Summary
-**Goal:** Fix same-origin `/api/*` routes so they no longer return Not Found after deployment by adding minimal Next.js API route handlers.
+**Goal:** Make Internet Identity the only sign-in method and use the Internet Identity identity for authenticated backend calls (removing Google and Bearer-token flows).
 
 **Planned changes:**
-- Add a `GET /api/health` handler that returns HTTP 200 with JSON body exactly `{ "ok": true }`.
-- Add a `GET /api/auth/google/start` handler that returns an HTTP redirect (3xx) with a `Location` header pointing to a placeholder URL.
-- Add a `GET /api/auth/google/callback` handler that returns HTTP 200 JSON including an English message containing the phrase "callback reached".
-- Verify whether the project uses Next.js App Router (`/app`) or Pages Router (`/pages`) and place exactly one correct set of handlers accordingly so the deployed runtime resolves `/api/*` endpoints.
+- Update `/login` to show only one primary button labeled exactly “Sign in”, remove/disable any Google sign-in UI and any Google-related copy, and keep all text in English.
+- Ensure the “Sign in” action uses the official Internet Identity AuthClient login flow with `identityProvider: https://identity.ic0.app` (without editing immutable Internet Identity hook files).
+- After successful Internet Identity login, call `GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami`, store returned `principal` and `user` in centralized app session state, and show a clear English error if it fails.
+- Refactor backend-call wiring so authenticated requests use an IC agent/actor configured with the AuthClient identity (no `Authorization: Bearer ...` for backend requests), while keeping guest flows working with clear English error handling.
+- Update the header to show “Profile” plus principal and/or username when logged in, add “Sign out” that logs out via AuthClient and clears session state (and cached authenticated data); when logged out, show a “Sign in” action.
+- Update Rooms UI so “Create with Account” is enabled/functional only when logged in via Internet Identity, and “Create without account” remains always available with an English explanation when account creation is unavailable.
+- Remove/neutralize any remaining Google-OAuth-specific session handling or dev/testing UI so `/login` cannot crash or display Google configuration errors.
 
-**User-visible outcome:** Navigating to `/api/health` returns `{ "ok": true }`, and the Google auth start/callback endpoints respond (redirect / JSON) instead of 404 Not Found when called from the existing frontend.
+**User-visible outcome:** Users can sign in only via Internet Identity, see their profile info and sign out from the header, and create rooms with an account only when signed in; the app uses Internet Identity for authenticated backend calls and no longer shows or triggers Google login anywhere.

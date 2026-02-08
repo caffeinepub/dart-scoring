@@ -1,21 +1,15 @@
 /**
- * localStorage utilities for persisting admin/scorer tokens by room code.
- * Tokens are required for state-mutating operations in multi-device rooms.
+ * localStorage utilities for persisting and retrieving admin/scorer tokens by room code.
+ * Includes safe error handling for storage failures.
  */
 
-const STORAGE_KEY_PREFIX = 'dart_scorer_admin_token_';
+const ADMIN_TOKEN_PREFIX = 'dart_admin_token_';
 
 /**
- * Get the stored admin token for a room code
+ * Normalize room code for consistent storage keys
  */
-export function getAdminToken(roomCode: string): string | null {
-  try {
-    const key = STORAGE_KEY_PREFIX + roomCode;
-    return localStorage.getItem(key);
-  } catch (error) {
-    console.error('Failed to read admin token from storage:', error);
-    return null;
-  }
+function normalizeRoomCode(code: string): string {
+  return code.trim().toUpperCase();
 }
 
 /**
@@ -23,21 +17,39 @@ export function getAdminToken(roomCode: string): string | null {
  */
 export function setAdminToken(roomCode: string, token: string): void {
   try {
-    const key = STORAGE_KEY_PREFIX + roomCode;
+    const normalizedCode = normalizeRoomCode(roomCode);
+    const key = ADMIN_TOKEN_PREFIX + normalizedCode;
     localStorage.setItem(key, token);
   } catch (error) {
-    console.error('Failed to save admin token to storage:', error);
+    console.error('[adminTokenStorage] Failed to save admin token:', error);
+    // Non-fatal: don't crash the UI
   }
 }
 
 /**
- * Clear the admin token for a room code
+ * Retrieve an admin token for a room code
  */
-export function clearAdminToken(roomCode: string): void {
+export function getAdminToken(roomCode: string): string | null {
   try {
-    const key = STORAGE_KEY_PREFIX + roomCode;
+    const normalizedCode = normalizeRoomCode(roomCode);
+    const key = ADMIN_TOKEN_PREFIX + normalizedCode;
+    return localStorage.getItem(key);
+  } catch (error) {
+    console.error('[adminTokenStorage] Failed to retrieve admin token:', error);
+    return null;
+  }
+}
+
+/**
+ * Remove an admin token for a room code
+ */
+export function removeAdminToken(roomCode: string): void {
+  try {
+    const normalizedCode = normalizeRoomCode(roomCode);
+    const key = ADMIN_TOKEN_PREFIX + normalizedCode;
     localStorage.removeItem(key);
   } catch (error) {
-    console.error('Failed to clear admin token from storage:', error);
+    console.error('[adminTokenStorage] Failed to remove admin token:', error);
+    // Non-fatal: don't crash the UI
   }
 }

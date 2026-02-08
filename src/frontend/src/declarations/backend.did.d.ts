@@ -83,6 +83,9 @@ export interface Room {
   'owner_user_id' : [] | [Principal],
   'hostId' : string,
 }
+export type RoomCreateResult = { 'error' : RoomCreationError } |
+  { 'success' : { 'admin_token' : [] | [string], 'room' : Room } };
+export interface RoomCreationError { 'code' : string, 'message' : string }
 export type RoomStatus = { 'Open' : null } |
   { 'Closed' : null } |
   { 'InProgress' : null };
@@ -135,6 +138,11 @@ export interface UserStats {
   'avg3dartOverall' : number,
   'checkoutRate' : number,
 }
+export interface WhoAmI {
+  'principal' : Principal,
+  'user' : [] | [User],
+  'authenticated' : boolean,
+}
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addPlayer' : ActorMethod<
@@ -143,10 +151,7 @@ export interface _SERVICE {
   >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createGame' : ActorMethod<[bigint, [] | [AdminToken]], Game>,
-  'createRoomV2' : ActorMethod<
-    [string, string, boolean],
-    { 'admin_token' : [] | [string], 'room' : Room }
-  >,
+  'createRoomV2' : ActorMethod<[string, string, boolean], RoomCreateResult>,
   'createShotEvent' : ActorMethod<
     [bigint, bigint, bigint, bigint, [] | [AdminToken]],
     ShotEvent
@@ -190,6 +195,7 @@ export interface _SERVICE {
     [bigint, bigint, [] | [AdminToken]],
     undefined
   >,
+  'whoami' : ActorMethod<[], WhoAmI>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

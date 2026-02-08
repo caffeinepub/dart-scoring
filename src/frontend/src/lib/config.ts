@@ -1,24 +1,21 @@
 /**
  * Centralized configuration for backend base URL resolution.
- * All backend endpoints are now served under same-origin /api prefix.
+ * All backend endpoints now target the external BACKEND_URL.
  */
 
 /**
- * Resolves the backend base URL for same-origin /api endpoints.
- * In this architecture, all backend endpoints are accessible at /api/* on the same origin.
+ * The external backend base URL.
+ * All API requests will be made to this URL.
+ */
+export const BACKEND_URL = "https://dart-scoring-backend-vab.caffeine.xyz";
+
+/**
+ * Resolves the backend base URL for all API endpoints.
  * 
- * @returns {string} The resolved backend base URL (always same-origin /api)
+ * @returns {string} The external backend base URL
  */
 export function getBackendBaseUrl(): string {
-  // Check if we're in a browser environment
-  if (typeof window === 'undefined') {
-    // Server-side or build-time: return /api prefix
-    return "/api";
-  }
-
-  // Same-origin /api (for all environments)
-  // This assumes the backend is accessible at the same origin with /api prefix
-  return "/api";
+  return BACKEND_URL;
 }
 
 /**

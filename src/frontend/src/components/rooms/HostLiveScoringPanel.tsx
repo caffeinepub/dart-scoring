@@ -1,20 +1,20 @@
 import { useState } from 'react';
-import { Undo } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Undo2, Send } from 'lucide-react';
 import { submitScore, undoLastTurn } from '../../lib/roomGameApi';
+import { getPlayerDisplayName } from '../../lib/playerDisplayName';
 import { useActor } from '../../hooks/useActor';
 import type { GameSnapshot } from '../../lib/realtimeEventEnvelope';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getPlayerDisplayName } from '../../lib/playerDisplayName';
 
 interface HostLiveScoringPanelProps {
   snapshot: GameSnapshot;
   roomCode: string;
-  adminToken: string | null;
+  adminToken: string | undefined;
   onSnapshotUpdate: (snapshot: GameSnapshot) => void;
-  onError: (error: string) => void;
+  onError: (message: string) => void;
 }
 
 export default function HostLiveScoringPanel({
@@ -27,10 +27,11 @@ export default function HostLiveScoringPanel({
   const { actor } = useActor();
   const [scoreInput, setScoreInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUndoing, setIsUndoing] = useState(false);
 
-  const currentPlayerId = snapshot.game.current_player_id;
-  const currentPlayer = snapshot.players.find(p => p.id === currentPlayerId);
-  const isGameOver = snapshot.game.status === 'completed';
+  const currentPlayer = snapshot.players.find(
+    (p) => p.id === snapshot.game.current_player_id
+  );
 
   const handleSubmitScore = async () => {
     const score = parseInt(scoreInput, 10);
@@ -39,14 +40,17 @@ export default function HostLiveScoringPanel({
       return;
     }
 
-    setIsSubmitting(true);
-    onError('');
+    if (!currentPlayer) {
+      onError('No current player found');
+      return;
+    }
 
+    setIsSubmitting(true);
     try {
       const result = await submitScore(
         actor,
         snapshot.game.id,
-        currentPlayerId,
+        currentPlayer.id,
         score,
         roomCode,
         adminToken
@@ -66,16 +70,10 @@ export default function HostLiveScoringPanel({
   };
 
   const handleUndo = async () => {
-    if (snapshot.last_turns.length === 0) {
-      onError('No turns to undo');
-      return;
-    }
-
-    setIsSubmitting(true);
-    onError('');
-
+    setIsUndoing(true);
     try {
-      const result = await undoLastTurn(snapshot);
+      const result = await undoLastTurn(actor, snapshot.game.id, roomCode, adminToken);
+
       if (result.ok && result.snapshot) {
         onSnapshotUpdate(result.snapshot);
       } else {
@@ -84,130 +82,124 @@ export default function HostLiveScoringPanel({
     } catch (err) {
       onError('Failed to undo turn. Please try again.');
     } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !isSubmitting && scoreInput.trim()) {
-      handleSubmitScore();
+      setIsUndoing(false);
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Player Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {snapshot.players.map((player) => (
-          <Card
-            key={player.id}
-            className={`${
-              player.id === currentPlayerId && !isGameOver
-                ? 'border-2 border-primary bg-primary/5'
-                : 'border-2 border-border'
-            }`}
-          >
-            <CardContent className="pt-4 pb-4 text-center space-y-2">
-              <h3 className="text-lg font-semibold">{getPlayerDisplayName(player)}</h3>
-              {player.id === currentPlayerId && !isGameOver && (
-                <span className="inline-block px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                  Active
-                </span>
-              )}
-              <p className="text-3xl font-bold">{player.remaining}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-4">
+        {snapshot.players.map((player) => {
+          const isActive = player.id === snapshot.game.current_player_id;
+          return (
+            <Card
+              key={player.id}
+              className={isActive ? 'border-primary border-2' : ''}
+            >
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">
+                  {getPlayerDisplayName(player)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">{player.remaining}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Score Entry */}
-      {!isGameOver && currentPlayer && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Enter Score for {getPlayerDisplayName(currentPlayer)}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                placeholder="Enter score (0-180)"
-                value={scoreInput}
-                onChange={(e) => setScoreInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={isSubmitting}
-                className="h-12 text-lg"
-                min="0"
-                max="180"
-              />
-              <Button
-                onClick={handleSubmitScore}
-                disabled={isSubmitting || !scoreInput.trim()}
-                className="h-12 px-8"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit'}
-              </Button>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Current Player: {currentPlayer ? getPlayerDisplayName(currentPlayer) : 'None'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="score-input">Enter Score</Label>
+            <Input
+              id="score-input"
+              type="number"
+              min="0"
+              max="180"
+              placeholder="0-180"
+              value={scoreInput}
+              onChange={(e) => setScoreInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSubmitScore();
+                }
+              }}
+              className="text-2xl h-16 text-center"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              onClick={handleSubmitScore}
+              disabled={isSubmitting || !scoreInput}
+              className="flex-1 h-12"
+              size="lg"
+            >
+              {isSubmitting ? (
+                'Submitting...'
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Submit
+                </>
+              )}
+            </Button>
+
             <Button
               onClick={handleUndo}
-              disabled={isSubmitting || snapshot.last_turns.length === 0}
+              disabled={isUndoing || snapshot.last_turns.length === 0}
               variant="outline"
-              className="w-full gap-2"
+              className="h-12"
+              size="lg"
             >
-              <Undo className="h-4 w-4" />
-              Undo Last Turn
+              {isUndoing ? (
+                'Undoing...'
+              ) : (
+                <>
+                  <Undo2 className="h-4 w-4 mr-2" />
+                  Undo
+                </>
+              )}
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Recent Turns Table */}
+      {/* Recent Turns */}
       {snapshot.last_turns.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Recent Turns</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Turn</TableHead>
-                  <TableHead>Player</TableHead>
-                  <TableHead className="text-right">Score</TableHead>
-                  <TableHead className="text-right">Remaining</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {snapshot.last_turns.slice(-10).reverse().map((turn) => {
-                  const player = snapshot.players.find(p => p.id === turn.player_id);
-                  const playerName = player ? getPlayerDisplayName(player) : 'Unknown';
-                  
-                  return (
-                    <TableRow key={turn.id}>
-                      <TableCell className="font-medium">#{turn.turn_index + 1}</TableCell>
-                      <TableCell>{playerName}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {turn.is_bust ? (
-                          <span className="text-destructive">BUST</span>
-                        ) : (
-                          <span>-{turn.scored_total}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-bold">
-                        {turn.remaining_after}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {turn.is_win && (
-                          <span className="inline-block px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                            WIN
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <div className="space-y-2">
+              {snapshot.last_turns.slice(-5).reverse().map((turn, idx) => {
+                const player = snapshot.players.find((p) => p.id === turn.player_id);
+                return (
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center py-2 border-b last:border-0"
+                  >
+                    <span className="font-medium">
+                      {player ? getPlayerDisplayName(player) : 'Unknown'}
+                    </span>
+                    <span className="text-lg">{turn.scored_total}</span>
+                    <span className="text-muted-foreground">
+                      → {turn.remaining_after}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}

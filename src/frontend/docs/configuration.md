@@ -45,19 +45,16 @@ For custom IC hosts or testing, you can modify the `createActorWithConfig` funct
 
 **Location:** All backend endpoints are served under `/api/*` on the same origin
 
-The application uses a same-origin architecture where all backend API endpoints (including Google OAuth) are accessible at `/api/*` paths on the same domain as the frontend. This eliminates the need for separate backend domain configuration.
+The application uses a same-origin architecture where backend API endpoints are accessible at `/api/*` paths on the same domain as the frontend. This eliminates the need for separate backend domain configuration.
 
 **Key Endpoints:**
 
 | Endpoint | Description | Expected Response |
 |----------|-------------|-------------------|
 | `/api/health` | Health check endpoint | HTTP 200 with "OK" status |
-| `/api/auth/google/start` | Google OAuth initiation | HTTP 302/303 redirect to Google |
-| `/api/auth/google/callback` | Google OAuth callback | Processes OAuth code and redirects |
 
 **Behavior:**
 
-- **Google Sign-In:** Clicking "Continue with Google" on the login page performs a full-page redirect to `/api/auth/google/start`, initiating the Google OAuth flow
 - **No External Configuration Required:** The frontend automatically uses same-origin `/api` paths for all backend communication
 - **Development Proxy:** In local development, Vite proxies `/api/*` requests to the local dfx replica (configured in `vite.config.ts`)
 
@@ -66,4 +63,3 @@ The application uses a same-origin architecture where all backend API endpoints 
 ##### Local Development
 
 The Vite dev server (configured in `frontend/vite.config.ts`) automatically proxies `/api/*` requests to the local dfx replica:
-

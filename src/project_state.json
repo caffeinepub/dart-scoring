@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 87,
-  "summary": "Update architecture so the backend runs within the same \"Dart Scoring\" app under the `/api` path (no separate backend app/service or domain). All backend endpoints (rooms, auth, Google OAuth) must be exposed as `/api/...` (e.g. `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback`). Frontend Google login must redirect via `window.location.href = \"/api/auth/google/start\"`, and all references to `dart-scoring-backend.caffeine.xyz` must be removed. Post-deploy verification: `/api/health` returns OK and \"Continue with Google\" opens Google OAuth.",
+  "projectStateVersion": 95,
+  "summary": "Switch authentication to Internet Identity (ICP) using AuthClient (identityProvider https://identity.ic0.app). Remove/disable Google login from /login. After successful II login, call backend GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami and store principal + user in app state as the logged-in session. All backend requests must use an agent configured with the AuthClient identity so the backend can read the caller Principal; do not use Authorization: Bearer tokens. UI should show Profile + principal/username when logged in and provide Sign out (logs out AuthClient + clears app state). In multi-device Rooms UI, \"Create with Account\" is available only when logged in; \"Create without account\" remains always available.",
   "architectural_notes": [
     "Tech stack: Next.js + React + TypeScript; target is a PWA.",
     "Initial routes/pages required: / (Start Game) and /game (Game Screen).",
@@ -16,11 +16,9 @@
   ],
   "known_issues": [
     "OAuth login frontend crash: components call useOAuthTokenSession but the app is not wrapped in OAuthTokenSessionProvider (or provider is too low in the tree), causing Sign In route to crash instead of rendering the login screen.",
-    "\"Continue with Google\" button incorrectly navigates to an in-app `/auth/google` route causing a Not Found page; it must full-page redirect to backend `/auth/google/start` using `NEXT_PUBLIC_BACKEND_URL`, and show \"Google login not configured\" if missing.",
-    "Architecture change required: backend must be available under same-app `/api/*` routes; frontend Google OAuth must redirect to `/api/auth/google/start` and all `dart-scoring-backend.caffeine.xyz` references must be removed; verify `/api/health` returns OK after deployment.",
-    "/api/* currently returns Not Found in production because Next.js route handlers for `/api/health` and Google OAuth endpoints are missing; must add minimal API handlers (App Router or Pages Router) and redeploy."
+    "\"Continue with Google\" button incorrectly navigates to an in-app `/auth/google` route causing a Not Found page; it must full-page redirect to backend `/auth/google/start` using `NEXT_PUBLIC_BACKEND_URL`, and show \"Google login not configured\" if missing."
   ],
-  "isFixRequest": true,
+  "isFixRequest": false,
   "existing_features": [
     {
       "id": "feature-create-two-frontend-routes-pages-start-game-and-game-game-screen-with-working-navigation-between-them-e-g-a-primary-cta-on-that-navigates-to-game-and-a-back-affordance-on-game-that-returns-to",
@@ -907,6 +905,166 @@
       "title": "Update deployment/reverse-proxy guidance/config so `/api/*` remains routed to the backend HTTP endpoints under the same application origin (no separate backend domain), while preserving SPA routing for non-asset paths.",
       "reqIds": [
         "REQ-202"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-frontend-configuration-so-all-backend-http-requests-use-the-external-base-url-exactly-backend-url-https-dart-scoring-backend-vab-caffeine-xyz-remove-disable-any-same-origin-api-base-url-usage-for-backend-http-calls-do-not-call-the-backend-via-the-frontend-origin",
+      "title": "Update the frontend configuration so all backend HTTP requests use the external base URL exactly: BACKEND_URL = \"https://dart-scoring-backend-vab.caffeine.xyz\". Remove/disable any same-origin \"/api\" base URL usage for backend HTTP calls (do not call the backend via the frontend origin).",
+      "reqIds": [
+        "REQ-203"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-refactor-room-related-frontend-api-calls-to-use-fetch-to-backend-url-endpoints-not-local-actor-calls-1-create-room-must-post-to-backend-url-rooms-2-join-room-validation-must-get-backend-url-rooms-code-ensure-all-these-requests-include-credentials-omit-to-avoid-cors-credential-issues-and-handle-errors-by-returning-a-non-throwing-failure-result-so-the-ui-never-crashes",
+      "title": "Refactor room-related frontend API calls to use `fetch` to BACKEND_URL endpoints (not local actor calls): (1) Create room must POST to BACKEND_URL + \"/rooms\"; (2) Join room validation must GET BACKEND_URL + \"/rooms/{code}\". Ensure all these requests include `credentials: \"omit\"` to avoid CORS credential issues, and handle errors by returning a non-throwing failure result so the UI never crashes.",
+      "reqIds": [
+        "REQ-204"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-refactor-game-related-frontend-api-calls-to-use-fetch-to-backend-url-endpoints-not-local-actor-calls-1-create-game-must-post-to-backend-url-rooms-code-games-2-game-snapshot-must-get-backend-url-games-gameid-ensure-credentials-omit-is-set-on-these-fetch-calls-and-failures-are-handled-without-crashing-the-ui",
+      "title": "Refactor game-related frontend API calls to use `fetch` to BACKEND_URL endpoints (not local actor calls): (1) Create game must POST to BACKEND_URL + \"/rooms/{code}/games\"; (2) Game snapshot must GET BACKEND_URL + \"/games/{gameId}\". Ensure `credentials: \"omit\"` is set on these fetch calls and failures are handled without crashing the UI.",
+      "reqIds": [
+        "REQ-205"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-refactor-score-mutation-calls-to-use-fetch-to-the-appropriate-backend-url-endpoints-for-add-turn-undo-edit-as-implemented-by-the-backend-all-mutating-requests-must-include-credentials-omit-robust-error-handling-and-must-never-crash-the-ui",
+      "title": "Refactor score mutation calls to use `fetch` to the appropriate BACKEND_URL endpoints for add turn / undo / edit (as implemented by the backend). All mutating requests must include `credentials: \"omit\"`, robust error handling, and must never crash the UI.",
+      "reqIds": [
+        "REQ-206"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-requested-authorization-header-rules-for-multi-device-gameplay-mutations-1-for-the-create-without-account-flow-persist-the-returned-admintoken-locally-keyed-by-room-code-and-include-it-on-all-state-mutating-requests-for-that-room-as-header-x-admin-token-token-2-for-the-create-with-account-flow-use-authorization-bearer-token-token-obtained-after-login-for-state-mutating-requests-and-do-not-send-x-admin-token",
+      "title": "Implement the requested authorization header rules for multi-device gameplay mutations: (1) For the \"Create without account\" flow, persist the returned `adminToken` locally (keyed by room code) and include it on all state-mutating requests for that room as header `X-ADMIN-TOKEN: <token>`; (2) For the \"Create with account\" flow, use `Authorization: Bearer <token>` (token obtained after login) for state-mutating requests and do NOT send `X-ADMIN-TOKEN`.",
+      "reqIds": [
+        "REQ-207"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-google-sign-in-initiation-and-the-dev-only-backend-debug-panel-to-stop-using-same-origin-api-endpoints-and-instead-target-the-external-backend-url-origin-for-1-starting-google-oauth-at-backend-url-auth-google-start-via-full-page-redirect-2-debug-tests-for-health-and-google-start-at-backend-url-health-and-backend-url-auth-google-start-using-fetch-credentials-omit",
+      "title": "Update the Google sign-in initiation and the dev-only Backend Debug panel to stop using same-origin \"/api\" endpoints and instead target the external BACKEND_URL origin for: (1) starting Google OAuth at BACKEND_URL + \"/auth/google/start\" via full-page redirect; (2) debug tests for health and Google start at BACKEND_URL + \"/health\" and BACKEND_URL + \"/auth/google/start\" using `fetch(credentials: \"omit\")`.",
+      "reqIds": [
+        "REQ-208"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-login-page-ui-to-remove-google-sign-in-as-an-active-login-method-hide-the-button-labeled-continue-with-google-or-replace-it-with-a-disabled-button-labeled-coming-soon-disabled-state-must-be-obvious-and-non-interactive-ensure-the-page-copy-no-longer-suggests-google-is-available-keep-only-working-methods",
+      "title": "Update the `/login` page UI to remove Google sign-in as an active login method: hide the button labeled \"Continue with Google\" OR replace it with a disabled button labeled \"Coming soon\" (disabled state must be obvious and non-interactive). Ensure the page copy no longer suggests Google is available (keep only working methods).",
+      "reqIds": [
+        "REQ-209"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-all-frontend-google-oauth-redirect-navigation-logic-so-the-app-never-initiates-or-depends-on-any-auth-google-redirect-flow-from-the-ui-specifically-remove-the-full-page-redirect-logic-from-the-login-page-and-ensure-no-other-ui-element-triggers-navigation-redirect-to-google-oauth-start-endpoints",
+      "title": "Remove all frontend Google OAuth redirect/navigation logic so the app never initiates or depends on any `/auth/google/*` redirect flow from the UI. Specifically: remove the full-page redirect logic from the login page and ensure no other UI element triggers navigation/redirect to Google OAuth start endpoints.",
+      "reqIds": [
+        "REQ-210"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-app-does-not-render-or-rely-on-google-oauth-callback-handling-routes-pages-remove-or-disable-the-google-oauth-redirect-page-route-so-that-the-app-does-not-process-token-error-query-strings-for-google-sign-in-if-the-route-remains-for-backward-compatibility-it-must-display-a-simple-non-crashing-message-indicating-google-sign-in-is-not-available-with-a-button-back-to-login-english-text",
+      "title": "Ensure the app does not render or rely on Google OAuth callback handling routes/pages. Remove or disable the Google OAuth redirect page/route so that the app does not process `token`/`error` query strings for Google sign-in. If the route remains for backward compatibility, it must display a simple non-crashing message indicating Google sign-in is not available, with a button back to `/login` (English text).",
+      "reqIds": [
+        "REQ-211"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-disable-any-user-facing-error-flows-related-to-google-login-configuration-e-g-google-not-configured-google-login-not-configured-and-remove-or-adjust-any-dev-only-diagnostic-ui-that-specifically-tests-google-oauth-endpoints-so-it-cannot-surface-google-login-related-errors-in-the-login-experience",
+      "title": "Remove/disable any user-facing error flows related to Google login configuration (e.g., \"Google not configured\" / \"Google login not configured\") and remove or adjust any dev-only diagnostic UI that specifically tests Google OAuth endpoints so it cannot surface Google-login-related errors in the login experience.",
+      "reqIds": [
+        "REQ-212"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-harden-the-login-screen-against-crashes-by-ensuring-all-auth-related-hooks-components-used-by-login-handle-missing-unsupported-flows-gracefully-no-uncaught-exceptions-during-render-or-button-clicks-keep-internet-identity-login-working-as-is-and-do-not-regress-existing-registration-profile-flows",
+      "title": "Harden the login screen against crashes by ensuring all auth-related hooks/components used by `/login` handle missing/unsupported flows gracefully (no uncaught exceptions during render or button clicks). Keep Internet Identity login working as-is and do not regress existing registration/profile flows.",
+      "reqIds": [
+        "REQ-213"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-documentation-to-reflect-that-google-login-is-disabled-unsupported-in-the-ui-remove-or-clearly-mark-outdated-google-oauth-setup-verification-instructions-ensure-docs-are-in-english-and-do-not-instruct-developers-users-to-use-continue-with-google",
+      "title": "Update frontend documentation to reflect that Google login is disabled/unsupported in the UI (remove or clearly mark outdated Google OAuth setup/verification instructions). Ensure docs are in English and do not instruct developers/users to use \"Continue with Google\".",
+      "reqIds": [
+        "REQ-214"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-frontend-multi-device-create-room-flow-to-clearly-expose-and-correctly-use-the-two-modes-create-without-account-must-always-be-available-and-on-success-must-persist-the-returned-admin-token-locally-keyed-by-the-returned-room-code-create-with-account-must-only-be-available-when-the-user-is-authenticated-and-must-not-store-an-admin-token-for-that-room",
+      "title": "Update the frontend multi-device \"Create Room\" flow to clearly expose and correctly use the two modes: \"Create without Account\" must always be available and, on success, must persist the returned admin token locally keyed by the returned room code; \"Create with Account\" must only be available when the user is authenticated and must not store an admin token for that room.",
+      "reqIds": [
+        "REQ-217"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-ui-shows-clear-english-non-crashing-error-feedback-for-room-creation-failures-in-both-modes-including-network-cors-failures-and-backend-structured-errors-and-prevent-unhandled-exceptions-from-bubbling-to-the-page",
+      "title": "Ensure the UI shows clear, English, non-crashing error feedback for room creation failures in both modes (including network/CORS failures and backend structured errors), and prevent unhandled exceptions from bubbling to the page.",
+      "reqIds": [
+        "REQ-218"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-login-page-so-internet-identity-is-the-only-available-sign-in-method-keep-a-single-primary-button-labeled-sign-in-and-remove-any-active-google-sign-in-option-and-any-ui-copy-that-suggests-google-sign-in-is-available",
+      "title": "Update the `/login` page so Internet Identity is the only available sign-in method: keep a single primary button labeled \"Sign in\" and remove any active Google sign-in option and any UI copy that suggests Google sign-in is available.",
+      "reqIds": [
+        "REQ-219"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-after-a-successful-internet-identity-login-fetch-the-authenticated-user-session-from-the-backend-by-calling-get-https-dart-scoring-backend-vab-caffeine-xyz-auth-whoami-then-store-the-returned-principal-and-user-in-application-state-and-treat-the-session-as-authenticated",
+      "title": "After a successful Internet Identity login, fetch the authenticated user session from the backend by calling: `GET https://dart-scoring-backend-vab.caffeine.xyz/auth/whoami`, then store the returned `principal` and `user` in application state and treat the session as authenticated.",
+      "reqIds": [
+        "REQ-221"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-refactor-frontend-backend-call-wiring-so-all-authenticated-backend-interactions-use-the-internet-identity-identity-agent-configured-with-the-authclient-identity-so-the-backend-can-read-the-caller-principal-do-not-use-authorization-bearer-tokens-for-any-backend-requests",
+      "title": "Refactor frontend backend-call wiring so all authenticated backend interactions use the Internet Identity identity (agent configured with the AuthClient identity) so the backend can read the caller Principal; do not use `Authorization: Bearer` tokens for any backend requests.",
+      "reqIds": [
+        "REQ-222"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-app-header-top-right-to-show-profile-plus-the-authenticated-principal-and-or-username-when-logged-in-and-add-a-sign-out-action-that-logs-out-via-authclient-and-clears-all-session-state",
+      "title": "Update the app header (top-right) to show \"Profile\" plus the authenticated principal and/or username when logged in, and add a \"Sign out\" action that logs out via AuthClient and clears all session state.",
+      "reqIds": [
+        "REQ-223"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-multi-device-rooms-ui-so-create-with-account-is-available-and-functional-only-when-the-user-is-logged-in-via-internet-identity-create-without-account-remains-always-available-for-guests",
+      "title": "Update the multi-device Rooms UI so \"Create with Account\" is available and functional only when the user is logged in via Internet Identity; \"Create without account\" remains always available for guests.",
+      "reqIds": [
+        "REQ-224"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-or-neutralize-any-remaining-google-oauth-specific-frontend-session-handling-that-could-affect-the-login-experience-including-any-dev-only-google-oauth-testing-ui-so-the-login-page-cannot-crash-or-show-google-login-related-configuration-errors",
+      "title": "Remove or neutralize any remaining Google-OAuth-specific frontend session handling that could affect the login experience (including any dev-only Google OAuth testing UI) so the login page cannot crash or show Google-login-related configuration errors.",
+      "reqIds": [
+        "REQ-225"
       ],
       "version": 1
     }
@@ -1815,12 +1973,6 @@
       "status": "pending"
     },
     {
-      "id": "AR-131",
-      "summary": "Frontend: add “Continue with Google” on /login that redirects to backend /auth/google/start; implement FRONTEND_OAUTH_REDIRECT handler page/route to read token (or error) from query, store token via the same session mechanism as normal login, then redirect to /profile (or dashboard) with English error handling for missing token / consent denied",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
       "id": "AR-132",
       "summary": "Google OAuth security hardening (minimum): make OAuth state single-use (mark used/delete after use) with TTL 10 minutes; if Google email_verified is false then do not link to an existing account by email (only create new or block); never log access/refresh/OAuth tokens in logs",
       "reqIds": [],
@@ -1873,12 +2025,6 @@
       "status": "pending"
     },
     {
-      "id": "AR-142",
-      "summary": "Add a dev/debug-only \"Backend Debug\" diagnostic panel on the /login page that shows the detected backend URL (same as Google button), provides a \"Test backend\" button that GET fetches <backendUrl>/health and displays OK on 200 or FAILED + short error, and provides a \"Test Google start\" button that fetches or opens <backendUrl>/auth/google/start and shows whether response is 200/302 vs 404; render results in UI (no alerts), frontend-only change, must not crash.",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
       "id": "AR-143",
       "summary": "Ensure the backend canister exposes a public HTTP endpoint equivalent to `GET /auth/google/start` that generates a redirect to start the Google OAuth flow.",
       "reqIds": [
@@ -1903,54 +2049,68 @@
       "status": "pending"
     },
     {
-      "id": "AR-146",
-      "summary": "Serve all backend endpoints from the same app under `/api/*` (no separate backend app/domain): expose `/api/health`, `/api/auth/google/start`, `/api/auth/google/callback` (and rooms/auth routes) and update the frontend Google sign-in redirect to `window.location.href = \"/api/auth/google/start\"`; remove all references to `dart-scoring-backend.caffeine.xyz`; verify post-deploy behavior.",
+      "id": "AR-153",
+      "summary": "Switch frontend API wiring to use external BACKEND_URL (https://dart-scoring-backend-vab.caffeine.xyz) for rooms/games/turns endpoints (no same-origin /api), add fetch cross-origin settings (credentials: \"omit\") + non-crashing error handling, and implement auth header rules: persist adminToken for no-account flow and send X-ADMIN-TOKEN on mutating requests; for account flow send Authorization Bearer and never send X-ADMIN-TOKEN.",
       "reqIds": [],
       "status": "pending"
     },
     {
-      "id": "AR-147",
-      "summary": "Expose all backend HTTP endpoints under the same application origin using the `/api/...` path prefix, including at minimum: `/api/health`, `/api/auth/google/start`, and `/api/auth/google/callback` (and any existing rooms/auth endpoints used by the multi-device flow).",
-      "reqIds": [
-        "REQ-198"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-148",
-      "summary": "Fix /api/* returning Not Found by adding minimal Next.js API route handlers: implement /api/health (200 {ok:true}), /api/auth/google/start (302 redirect placeholder), /api/auth/google/callback (200 JSON \"callback reached\") using App Router (app/api/**/route.ts) or Pages Router fallback (pages/api/**.ts) depending on project structure; deploy and verify endpoints; do not change UI.",
+      "id": "AR-154",
+      "summary": "Disable/remove Google login in the frontend UI: hide or show disabled \"Continue with Google\" (\"Coming soon\"), remove all /auth/google/* redirect logic, and do not show \"Google not configured\" errors; keep only working login methods (Internet Identity + email/password) and ensure the login screen does not crash",
       "reqIds": [],
       "status": "pending"
     },
     {
-      "id": "AR-149",
-      "summary": "Implement same-origin API route handler for `GET /api/health` so it returns HTTP 200 with JSON body exactly `{ \"ok\": true }` (no Not Found). Prefer implementing via Next.js App Router route handler at `app/api/health/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/health.ts`.",
+      "id": "AR-155",
+      "summary": "Support two Create Room modes in the multi-device UI: (1) \"Without account\" always creates a room and returns/persists scorer/admin token; (2) \"With account\" creates a room owned by the currently signed-in user. Show clear non-crashing English error messages on failures.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-156",
+      "summary": "Implement backend room creation to support two explicit modes with correct ownership/token behavior: (1) \"Without account\" must always succeed for any caller (including anonymous) and return a scorer/admin token; the backend must persist only a server-derived token hash in the room record; (2) \"With account\" must create a room owned by the logged-in user (room.owner_user_id set to the caller) and must not require/return an admin token for normal host mutations by that owner.",
       "reqIds": [
-        "REQ-203"
+        "REQ-215"
       ],
       "status": "pending"
     },
     {
-      "id": "AR-150",
-      "summary": "Implement same-origin API route handler for `GET /api/auth/google/start` so it is not Not Found and responds with an HTTP redirect (302 is acceptable) to a placeholder URL for now. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/start/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/start.ts`.",
+      "id": "AR-157",
+      "summary": "Replace trap-based control flow for expected room-creation failures with structured, non-throwing errors (machine-readable code + English message) so the frontend can reliably show a clear error message without crashing (e.g., unauthenticated \"With account\" attempt; duplicate/invalid room code).",
       "reqIds": [
-        "REQ-204"
+        "REQ-216"
       ],
       "status": "pending"
     },
     {
-      "id": "AR-151",
-      "summary": "Implement same-origin API route handler for `GET /api/auth/google/callback` so it returns HTTP 200 with JSON indicating the callback was reached. Prefer implementing via Next.js App Router route handler at `app/api/auth/google/callback/route.ts` if the project uses the `/app` directory. If the project uses the Pages Router instead, implement the equivalent handler at `pages/api/auth/google/callback.ts`.",
-      "reqIds": [
-        "REQ-205"
-      ],
+      "id": "AR-158",
+      "summary": "Switch /login to Internet Identity only: keep \"Sign in\" (AuthClient with identityProvider https://identity.ic0.app) and remove/disable \"Continue with Google\"",
+      "reqIds": [],
       "status": "pending"
     },
     {
-      "id": "AR-152",
-      "summary": "Verify the project routing mode and place the API handlers accordingly: confirm whether the project is using Next.js App Router (`/app`) or Pages Router (`/pages`), and ensure exactly one correct set of handlers is present and used by the runtime so `/api/*` endpoints are reachable after deployment.",
+      "id": "AR-159",
+      "summary": "After II login, call backend GET {BACKEND_URL}/auth/whoami and store principal + user in application state; treat this as authenticated session; implement Sign out (AuthClient logout + clear state) and show Profile + principal/username in top-right when logged in",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-160",
+      "summary": "Refactor frontend backend-API wiring so all requests use an agent configured with the Internet Identity (AuthClient identity) so backend sees caller Principal; do not use Authorization Bearer tokens",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-161",
+      "summary": "Gate multi-device Rooms \"Create with Account\" mode so it is available/works only when the user is logged in via Internet Identity; \"Create without account\" remains always available",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-163",
+      "summary": "Ensure the Internet Identity login flow uses the official AuthClient login with `identityProvider` set to `https://identity.ic0.app` (without editing immutable Internet Identity hook source files).",
       "reqIds": [
-        "REQ-206"
+        "REQ-220"
       ],
       "status": "pending"
     }

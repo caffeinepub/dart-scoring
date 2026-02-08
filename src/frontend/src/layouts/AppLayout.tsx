@@ -1,13 +1,20 @@
 import { useEffect } from 'react';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { Target, User } from 'lucide-react';
+import { Target, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useSession } from '../hooks/useSession';
 
 export default function AppLayout() {
   const navigate = useNavigate();
-  const { identity, isInitializing } = useInternetIdentity();
-  const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
+  const { identity, isInitializing, isAuthenticated, signOut } = useSession();
 
   // Register service worker for PWA offline support
   useEffect(() => {
@@ -28,13 +35,23 @@ export default function AppLayout() {
     }
   }, []);
 
+  const handleSignInClick = () => {
+    navigate({ to: '/login' });
+  };
+
   const handleProfileClick = () => {
     navigate({ to: '/profile' });
   };
 
-  const handleSignInClick = () => {
-    navigate({ to: '/login' });
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: '/' });
   };
+
+  const principalText = identity ? identity.getPrincipal().toString() : '';
+  const shortPrincipal = principalText.length > 12 
+    ? `${principalText.slice(0, 6)}...${principalText.slice(-4)}`
+    : principalText;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -48,10 +65,34 @@ export default function AppLayout() {
             {!isInitializing && (
               <>
                 {isAuthenticated ? (
-                  <Button variant="ghost" size="sm" onClick={handleProfileClick}>
-                    <User className="h-4 w-4 mr-2" />
-                    Profile
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none">Account</p>
+                          <p className="text-xs leading-none text-muted-foreground font-mono">
+                            {shortPrincipal}
+                          </p>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleProfileClick}>
+                        <User className="mr-2 h-4 w-4" />
+                        View Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 ) : (
                   <Button variant="default" size="sm" onClick={handleSignInClick}>
                     Sign in
